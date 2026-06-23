@@ -52,45 +52,88 @@ input{
 }
 
 button{
-    background:#2563eb;
     color:white;
     padding:14px 20px;
     border:none;
     border-radius:8px;
-    margin-top:20px;
     width: 100%;
     font-weight: bold;
     cursor: pointer;
     font-size: 16px;
+    transition: background 0.2s;
 }
 
-button:active {
+.btn-primary {
+    background:#2563eb;
+    margin-top: 20px;
+}
+.btn-primary:active {
     background: #1d4ed8;
 }
 
-/* Área de visualização do resultado */
-.preview-container {
-    margin-top: 20px;
-    text-align: center;
+.btn-secondary {
+    background: #475569;
+    margin-top: 10px;
+}
+.btn-secondary:active {
+    background: #334155;
 }
 
-#preview-img {
-    display: none;
-    width: 100%;
-    border-radius: 8px;
+.btn-success {
+    background: #22c55e;
+    margin-top: 30px;
+}
+.btn-success:active {
+    background: #16a34a;
+}
+.btn-success:disabled {
+    background: #15803d;
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+/* Área de visualização e grid das fotos */
+.preview-container {
+    margin-top: 20px;
+}
+
+.preview-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
     margin-top: 10px;
+}
+
+.thumb-preview {
+    width: 100%;
+    aspect-ratio: 1;
+    object-fit: cover;
+    border-radius: 8px;
     border: 2px solid #334155;
 }
 
 .geo-badge {
     display: none;
-    background: #1e293b;
+    background: #0f172a;
     border: 1px dashed #334155;
     padding: 10px;
     border-radius: 8px;
     margin-top: 10px;
     font-size: 14px;
     color: #38bdf8;
+}
+
+/* Alerta de sucesso simulado */
+.alert-success {
+    display: none;
+    background: #065f46;
+    border: 1px solid #059669;
+    color: #a7f3d0;
+    padding: 15px;
+    border-radius: 8px;
+    margin-top: 20px;
+    text-align: center;
+    font-weight: bold;
 }
 </style>
 </head>
@@ -112,15 +155,23 @@ button:active {
 <label>Cidade</label>
 <input id="input-cidade" placeholder="Digite a cidade">
 
-<!-- Campo oculto para acionar a câmera nativa do dispositivo -->
+<!-- Inputs ocultos para Câmera e Galeria -->
 <input type="file" id="camera-input" accept="image/*" capture="environment" style="display:none;">
+<input type="file" id="gallery-input" accept="image/*" multiple style="display:none;">
 
-<button id="btn-tirar-foto">Tirar Foto & Capturar GPS</button>
+<!-- Botões de Ação -->
+<button id="btn-tirar-foto" class="btn-primary">Tirar Foto & Capturar GPS</button>
+<button id="btn-galeria" class="btn-secondary">Adicionar Evidência do Ativo (Galeria)</button>
 
+<!-- Área de visualização do resultado -->
 <div class="preview-container">
     <div id="geo-info" class="geo-badge"></div>
-    <img id="preview-img" alt="Foto da Evidência">
+    <div id="preview-grid" class="preview-grid"></div>
 </div>
+
+<!-- Botão Salvar e Alerta -->
+<button id="btn-salvar" class="btn-success">Salvar Evidência</button>
+<div id="alert-save" class="alert-success"></div>
 
 </div>
 
@@ -128,58 +179,149 @@ button:active {
 
 <script>
 const btnTirarFoto = document.getElementById('btn-tirar-foto');
-const cameraInput = document.getElementById('camera-input');
-const previewImg = document.getElementById('preview-img');
-const geoInfo = document.getElementById('geo-info');
+const btnGaleria = document.getElementById('btn-galeria');
+const btnSalvar = document.getElementById('btn-salvar');
 
+const cameraInput = document.getElementById('camera-input');
+const galleryInput = document.getElementById('gallery-input');
+
+const previewGrid = document.getElementById('preview-grid');
+const geoInfo = document.getElementById('geo-info');
+const alertSave = document.getElementById('alert-save');
+
+const inputContrato = document.getElementById('input-contrato');
+const inputCidade = document.getElementById('input-cidade');
+
+// Lista para armazenar as imagens em memória (Base64)
+let listaImagens = [];
+let localizacaoAtual = null;
+
+// --- FUNÇÃO PARA ADICIONAR IMAGEM NA GRADE ---
+function adicionarImagemNaGrade(base64Image) {
+    listaImagens.push(base64Image);
+    
+    const img = document.createElement('img');
+    img.src = base64Image;
+    img.className = 'thumb-preview';
+    previewGrid.appendChild(img);
+}
+
+// --- CONTROLE DA CÂMERA & GPS ---
 btnTirarFoto.addEventListener('click', () => {
     geoInfo.style.display = 'block';
     geoInfo.textContent = "Obtendo localização GPS...";
 
-    // 1. Solicita a geolocalização do dispositivo primeiro
     if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
             (position) => {
                 const lat = position.coords.latitude.toFixed(6);
                 const lon = position.coords.longitude.toFixed(6);
+                localizacaoAtual = { latitude: lat, longitude: lon };
                 
-                // Exibe as coordenadas na tela
                 geoInfo.innerHTML = `📍 <strong>Localização capturada:</strong><br>Lat: ${lat} | Lon: ${lon}`;
-                
-                // 2. Abre a câmera do dispositivo após obter a localização
                 cameraInput.click();
             },
             (error) => {
                 console.error(error);
-                geoInfo.innerHTML = "⚠️ Não foi possível obter o GPS. Certifique-se de permitir o acesso à localização.";
-                
-                // Abre a câmera mesmo se houver falha no GPS
+                geoInfo.innerHTML = "⚠️ GPS não disponível. Certifique-se de permitir o acesso à localização.";
                 cameraInput.click();
             },
-            {
-                enableHighAccuracy: true, // Solicita alta precisão de GPS
-                timeout: 10000,           // Aguarda até 10 segundos
-                maximumAge: 0             // Força busca de localização em tempo real
-            }
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
         );
     } else {
-        geoInfo.textContent = "⚠️ Geolocalização não é suportada neste navegador.";
+        geoInfo.textContent = "⚠️ Geolocalização não suportada.";
         cameraInput.click();
     }
 });
 
-// 3. Captura o arquivo de imagem assim que o usuário tira a foto
 cameraInput.addEventListener('change', (event) => {
     const file = event.target.files[0];
     if (file) {
         const reader = new FileReader();
         reader.onload = function(e) {
-            // Mostra a foto capturada na tela
-            previewImg.src = e.target.result;
-            previewImg.style.display = 'block';
+            adicionarImagemNaGrade(e.target.result);
         }
         reader.readAsDataURL(file);
     }
+});
+
+// --- CONTROLE DA GALERIA (Múltiplas Fotos) ---
+btnGaleria.addEventListener('click', () => {
+    galleryInput.click();
+});
+
+galleryInput.addEventListener('change', (event) => {
+    const files = event.target.files;
+    if (files.length > 0) {
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                adicionarImagemNaGrade(e.target.result);
+            }
+            reader.readAsDataURL(file);
+        }
+    }
+});
+
+// --- SIMULAÇÃO DE SALVAMENTO ---
+btnSalvar.addEventListener('click', () => {
+    // Validação simples
+    const contrato = inputContrato.value.trim();
+    const cidade = inputCidade.value.trim();
+
+    if (!contrato || !cidade) {
+        alert("Por favor, preencha os campos de Contrato e Cidade antes de salvar.");
+        return;
+    }
+
+    if (listaImagens.length === 0) {
+        alert("Por favor, adicione pelo menos uma evidência (Foto ou Galeria) antes de salvar.");
+        return;
+    }
+
+    // Inicia simulação de salvamento
+    btnSalvar.disabled = true;
+    btnSalvar.textContent = "Enviando dados ao servidor...";
+    alertSave.style.display = 'none';
+
+    // Objeto consolidado que seria enviado para o Backend futuramente
+    const payloadEvidencia = {
+        contrato: contrato,
+        cidade: cidade,
+        localizacao: localizacaoAtual,
+        imagens: listaImagens // Array com todas as fotos em Base64
+    };
+
+    console.log("Dados que seriam enviados ao Backend:", payloadEvidencia);
+
+    // Simula uma resposta de rede (1.5 segundos)
+    setTimeout(() => {
+        // Exibe mensagem de sucesso
+        alertSave.style.display = 'block';
+        alertSave.innerHTML = `✅ Evidência Salva com Sucesso! (Simulado)<br>
+                               <span style="font-size:12px; font-weight:normal;">
+                               Contrato: ${contrato} | Imagens enviadas: ${listaImagens.length}
+                               </span>`;
+
+        // Reseta o formulário
+        inputContrato.value = "";
+        inputCidade.value = "";
+        listaImagens = [];
+        localizacaoAtual = null;
+        previewGrid.innerHTML = "";
+        geoInfo.style.display = 'none';
+
+        // Reabilita o botão
+        btnSalvar.disabled = false;
+        btnSalvar.textContent = "Salvar Evidência";
+
+        // Remove o alerta de sucesso após 5 segundos
+        setTimeout(() => {
+            alertSave.style.display = 'none';
+        }, 5000);
+
+    }, 1500);
 });
 </script>
 
