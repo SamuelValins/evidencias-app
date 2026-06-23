@@ -191,7 +191,7 @@ button{
 <label>Login do Técnico</label>
 <input id="input-tecnico" placeholder="DIGITE SEU LOGIN">
 
-<!-- Empresa Autocomplete -->
+<!-- Nome da Empresa -->
 <label>Nome da Empresa</label>
 <input id="input-empresa" list="lista-empresas" placeholder="SELECIONE OU DIGITE A EMPRESA">
 <datalist id="lista-empresas"></datalist>
@@ -306,6 +306,9 @@ const dadosMapeamento = [
     {c:"ITUVERAVA", e:"DANLEX DDD16/17"},
     {c:"JABOTICABAL", e:"DANLEX DDD16/17"},
     {c:"JACAREI", e:"DANLEX DDD12"},
+    {c:"JAGUARIUNA", e:"NEW TIME"},
+    {c:"JALES", e:"CANTOIA DDD17"},
+    {c:"JARDINOPOLIS", e:"BASIC DDD16/17"},
     {c:"JAGUARIUNA", e:"NEW TIME"},
     {c:"JALES", e:"CANTOIA DDD17"},
     {c:"JARDINOPOLIS", e:"BASIC DDD16/17"},
@@ -470,7 +473,7 @@ function atualizarOpcoesJanela(servico) {
 
     let janelas = [];
     if (servico === "RETIRADA") {
-        janelas = ["08HRS-11HRS", "11HRS-14HRS", "14HRS-17HRS"];
+        janelas = ["08HRS-11HRS", "11HRS-14HRS", "14HRS-17HRS", "08HRS-22HRS"];
     } else if (servico === "BOX") {
         janelas = ["08HRS-12HRS", "12HRS-18HRS"];
     }
