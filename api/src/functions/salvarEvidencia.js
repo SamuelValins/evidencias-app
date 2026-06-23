@@ -2,7 +2,7 @@ const { app } = require('@azure/functions');
 const { BlobServiceClient } = require('@azure/storage-blob');
 const { TableClient } = require('@azure/data-tables');
 
-const connectionString = process.env.AzureWebJobsStorage;
+const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING;
 
 app.http('salvarEvidencia', {
     methods: ['POST'],
