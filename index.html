@@ -18,6 +18,19 @@ body{
     padding:20px;
     font-size:24px;
     font-weight:bold;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.btn-navigation {
+    background: #475569;
+    color: white;
+    padding: 8px 15px;
+    text-decoration: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: bold;
 }
 
 .container{
@@ -40,6 +53,7 @@ label{
     color: #94a3b8;
 }
 
+/* Força visualmente que a digitação seja sempre exibida em maiúsculo */
 input{
     width:100%;
     padding:12px;
@@ -49,6 +63,14 @@ input{
     color: white;
     margin-top: 5px;
     box-sizing: border-box;
+    text-transform: uppercase; 
+}
+
+input:disabled {
+    background: #1e293b;
+    border-color: #1e293b;
+    color: #475569;
+    cursor: not-allowed;
 }
 
 button{
@@ -154,9 +176,9 @@ button{
 
 <body>
 
-<div class="header" style="display: flex; justify-content: space-between; align-items: center;">
+<div class="header">
     <span>📷 Aplicativo de Evidências</span>
-    <a href="/gerencial.html" style="background:#475569; color:white; padding:8px 15px; text-decoration:none; border-radius:6px; font-size:14px; font-weight:bold;">Painel Gerencial 📊</a>
+    <a href="/gerencial.html" class="btn-navigation">Painel Gerencial 📊</a>
 </div>
 
 <div class="container">
@@ -164,18 +186,23 @@ button{
 <div class="card">
 <h2>Nova Evidência</h2>
 
-<!-- Novos campos persistentes -->
+<!-- Login do Técnico -->
 <label>Login do Técnico</label>
-<input id="input-tecnico" placeholder="Digite seu login de técnico">
+<input id="input-tecnico" placeholder="DIGITE SEU LOGIN">
 
+<!-- Empresa Autocomplete -->
 <label>Nome da Empresa</label>
-<input id="input-empresa" placeholder="Digite o nome da empresa">
+<input id="input-empresa" list="lista-empresas" placeholder="SELECIONE OU DIGITE A EMPRESA">
+<datalist id="lista-empresas"></datalist>
 
-<label>Contrato</label>
-<input id="input-contrato" placeholder="Digite o contrato">
-
+<!-- Cidade Autocomplete (Inicia desabilitado) -->
 <label>Cidade</label>
-<input id="input-cidade" placeholder="Digite a cidade">
+<input id="input-cidade" list="lista-cidades" placeholder="SELECIONE A CIDADE (ESCOLHA A EMPRESA ANTES)" disabled>
+<datalist id="lista-cidades"></datalist>
+
+<!-- Contrato (Reposicionado abaixo de Cidade) -->
+<label>Contrato</label>
+<input id="input-contrato" placeholder="DIGITE O CONTRATO">
 
 <!-- Inputs ocultos para Câmera e Galeria -->
 <input type="file" id="camera-input" accept="image/*" capture="environment" style="display:none;">
@@ -188,7 +215,6 @@ button{
 <!-- Área de visualização do resultado -->
 <div class="preview-container">
     <div id="geo-info" class="geo-badge"></div>
-    <!-- Botão de atualização de GPS que aparece condicionalmente -->
     <button id="btn-atualizar-gps" class="btn-warning" style="display:none;">⚠️ Atualizar Geolocalização</button>
     <div id="preview-grid" class="preview-grid"></div>
 </div>
@@ -202,6 +228,149 @@ button{
 </div>
 
 <script>
+// --- BANCO DE DADOS DE MAPEAMENTO (CIDADE E EMPRESA) ---
+const dadosMapeamento = [
+    {c:"ADAMANTINA", e:"SCRIPT CALL"},
+    {c:"AGUDOS", e:"BASIC DDD14"},
+    {c:"ALVARES MACHADO", e:"SCRIPT CALL"},
+    {c:"AMERICANA", e:"ANTEC AMERICANA"},
+    {c:"AMERICO BRASILIENSE", e:"DANLEX DDD16/17"},
+    {c:"AMPARO", e:"NEW TIME"},
+    {c:"ANDRADINA", e:"SCRIPT CALL"},
+    {c:"APARECIDA", e:"ARCAD"},
+    {c:"ARACATUBA", e:"CANTOIA DDD14/18"},
+    {c:"ARARAQUARA", e:"DANLEX DDD16/17"},
+    {c:"ARARAS", e:"ANTEC AMERICANA"},
+    {c:"ARTUR NOGUEIRA", e:"ANTEC CAMPINAS"},
+    {c:"AVARE", e:"BASIC DDD14"},
+    {c:"BADY BASSITT", e:"CANTOIA DDD17"},
+    {c:"BARRETOS", e:"BASIC DDD16/17"},
+    {c:"BARRINHA", e:"BASIC DDD16/17"},
+    {c:"BATATAIS", e:"BASIC DDD16/17"},
+    {c:"BAURU", e:"BASIC DDD14"},
+    {c:"BEBEDOURO", e:"DANLEX DDD16/17"},
+    {c:"BERTIOGA", e:"DANLEX DDD13"},
+    {c:"BIRIGUI", e:"CANTOIA DDD14/18"},
+    {c:"BOITUVA", e:"ACESSO"},
+    {c:"BOTUCATU", e:"BASIC DDD14"},
+    {c:"CACAPAVA", e:"DANLEX DDD12"},
+    {c:"CACHOEIRA PAULISTA", e:"ARCAD"},
+    {c:"CAMPINAS", e:"ANTEC CAMPINAS"},
+    {c:"CAMPOS DO JORDAO", e:"ARCAD"},
+    {c:"CAPIVARI", e:"ANTEC AMERICANA"},
+    {c:"CARAGUATATUBA", e:"ARCAD"},
+    {c:"CASA BRANCA", e:"NEW TIME"},
+    {c:"CATANDUVA", e:"CANTOIA DDD17"},
+    {c:"CERQUILHO", e:"ACESSO"},
+    {c:"CORDEIROPOLIS", e:"NEW TIME"},
+    {c:"COSMOPOLIS", e:"ANTEC CAMPINAS"},
+    {c:"CRAVINHOS", e:"BASIC DDD16/17"},
+    {c:"CRUZEIRO", e:"ARCAD"},
+    {c:"CUBATAO", e:"DANLEX DDD13"},
+    {c:"DESCALVADO", e:"NEW TIME"},
+    {c:"DRACENA", e:"SCRIPT CALL"},
+    {c:"RAFARD", e:"ANTEC AMERICANA"},
+    {c:"ESPIRITO SANTO DO PINHAL", e:"NEW TIME"},
+    {c:"FERNANDOPOLIS", e:"CANTOIA DDD17"},
+    {c:"FRANCA", e:"DANLEX DDD16/17"},
+    {c:"GARCA", e:"GRANSAT"},
+    {c:"GUAIRA", e:"BASIC DDD16/17"},
+    {c:"GUAPIACU", e:"CANTOIA DDD17"},
+    {c:"GUARARAPES", e:"CANTOIA DDD14/18"},
+    {c:"GUARATINGUETA", e:"ARCAD"},
+    {c:"GUARUJA", e:"DANLEX DDD13"},
+    {c:"HORTOLANDIA", e:"ANTEC AMERICANA"},
+    {c:"IBATE", e:"DANLEX DDD16/17"},
+    {c:"IBIUNA", e:"TEMPO"},
+    {c:"INDAIATUBA", e:"DANLEX DDD19"},
+    {c:"IPERO", e:"ACESSO"},
+    {c:"ITANHAEM", e:"DANLEX DDD13"},
+    {c:"ITAPETININGA", e:"ANTEC SOROCABA"},
+    {c:"ITAPEVA", e:"TEMPO"},
+    {c:"ITAPIRA", e:"NEW TIME"},
+    {c:"ITUVERAVA", e:"DANLEX DDD16/17"},
+    {c:"JABOTICABAL", e:"DANLEX DDD16/17"},
+    {c:"JACAREI", e:"DANLEX DDD12"},
+    {c:"JAGUARIUNA", e:"NEW TIME"},
+    {c:"JALES", e:"CANTOIA DDD17"},
+    {c:"JARDINOPOLIS", e:"BASIC DDD16/17"},
+    {c:"JAU", e:"BASIC DDD14"},
+    {c:"JOSE BONIFACIO", e:"CANTOIA DDD17"},
+    {c:"LARANJAL PAULISTA", e:"TEMPO"},
+    {c:"LEME", e:"NEW TIME"},
+    {c:"LENCOIS PAULISTA", e:"BASIC DDD14"},
+    {c:"LIMEIRA", e:"ANTEC AMERICANA"},
+    {c:"LINS", e:"BASIC DDD14"},
+    {c:"LORENA", e:"ARCAD"},
+    {c:"LOUVEIRA", e:"NEW TIME"},
+    {c:"MARILIA", e:"GRANSAT"},
+    {c:"MATAO", e:"DANLEX DDD16/17"},
+    {c:"MIRANDOPOLIS", e:"CANTOIA DDD14/18"},
+    {c:"MIRASSOL", e:"CANTOIA DDD17"},
+    {c:"MIRASSOL", e:"CANTOIA DDD17"},
+    {c:"MOCOCA", e:"NEW TIME"},
+    {c:"MOGI GUACU", e:"ANTEC CAMPINAS"},
+    {c:"MOGI MIRIM", e:"ANTEC CAMPINAS"},
+    {c:"MONGAGUA", e:"DANLEX DDD13"},
+    {c:"MONTE ALTO", e:"DANLEX DDD16/17"},
+    {c:"ELIAS FAUSTO", e:"ANTEC AMERICANA"},
+    {c:"NOVA ODESSA", e:"ANTEC AMERICANA"},
+    {c:"OLIMPIA", e:"BASIC DDD16/17"},
+    {c:"ORLANDIA", e:"DANLEX DDD16/17"},
+    {c:"OURINHOS", e:"BASIC DDD14"},
+    {c:"PAULINIA", e:"ANTEC CAMPINAS"},
+    {c:"PEDREIRA", e:"NEW TIME"},
+    {c:"PENAPOLIS", e:"CANTOIA DDD14/18"},
+    {c:"PERUIBE", e:"DANLEX DDD13"},
+    {c:"PIEDADE", e:"ACESSO"},
+    {c:"PINDAMONHANGABA", e:"DANLEX DDD12"},
+    {c:"PIRACICABA", e:"EAM"},
+    {c:"PIRASSUNUNGA", e:"NEW TIME"},
+    {c:"PONTAL", e:"BASIC DDD16/17"},
+    {c:"PORTO FELIZ", e:"ANTEC SOROCABA"},
+    {c:"PORTO FERREIRA", e:"NEW TIME"},
+    {c:"POTIM", e:"ARCAD"},
+    {c:"POTIRENDABA", e:"CANTOIA DDD17"},
+    {c:"PRAIA GRANDE", e:"DANLEX DDD13"},
+    {c:"PRESIDENTE BERNARDES", e:"SCRIPT CALL"},
+    {c:"PRESIDENTE PRUDENTE", e:"SCRIPT CALL"},
+    {c:"PROMISSAO", e:"CANTOIA DDD14/18"},
+    {c:"MONTE MOR", e:"ANTEC AMERICANA"},
+    {c:"REGISTRO", e:"DANLEX DDD13"},
+    {c:"RIBEIRAO PRETO", e:"BASIC DDD16/17"},
+    {c:"RIO CLARO", e:"ANTEC AMERICANA"},
+    {c:"SANTA BARBARA D OESTE", e:"ANTEC AMERICANA"},
+    {c:"SANTA CRUZ DAS PALMEIRAS", e:"NEW TIME"},
+    {c:"SANTA CRUZ DO RIO PARDO", e:"BASIC DDD14"},
+    {c:"SANTA GERTRUDES", e:"NEW TIME"},
+    {c:"SANTA ROSA DE VITERBO", e:"BASIC DDD16/17"},
+    {c:"SANTOS", e:"DANLEX DDD13"},
+    {c:"SAO CARLOS", e:"DANLEX DDD16/17"},
+    {c:"SAO JOAO DA BOA VISTA", e:"NEW TIME"},
+    {c:"SAO JOAQUIM DA BARRA", e:"DANLEX DDD16/17"},
+    {c:"SAO JOSE DO RIO PARDO", e:"NEW TIME"},
+    {c:"SAO JOSE DO RIO PRETO", e:"CANTOIA DDD17"},
+    {c:"SAO JOSE DOS CAMPOS", e:"DANLEX DDD12"},
+    {c:"SAO SEBASTIAO", e:"ARCAD"},
+    {c:"SAO VICENTE", e:"DANLEX DDD13"},
+    {c:"SERRA NEGRA", e:"NEW TIME"},
+    {c:"SERRANA", e:"BASIC DDD16/17"},
+    {c:"SERTAOZINHO", e:"BASIC DDD16/17"},
+    {c:"SOROCABA", e:"ANTEC SOROCABA"},
+    {c:"SUMARE", e:"ANTEC AMERICANA"},
+    {c:"TAMBAU", e:"NEW TIME"},
+    {c:"TATUI", e:"ACESSO"},
+    {c:"TAUBATE", e:"DANLEX DDD12"},
+    {c:"TIETE", e:"ANTEC SOROCABA"},
+    {c:"TREMEMBE", e:"DANLEX DDD12"},
+    {c:"UBATUBA", e:"ARCAD"},
+    {c:"VALINHOS", e:"ANTEC CAMPINAS"},
+    {c:"VALPARAISO", e:"CANTOIA DDD14/18"},
+    {c:"VINHEDO", e:"ANTEC CAMPINAS"},
+    {c:"VOTORANTIM", e:"ANTEC SOROCABA"},
+    {c:"VOTUPORANGA", e:"CANTOIA DDD17"}
+];
+
 const btnTirarFoto = document.getElementById('btn-tirar-foto');
 const btnGaleria = document.getElementById('btn-galeria');
 const btnSalvar = document.getElementById('btn-salvar');
@@ -216,33 +385,99 @@ const alertSave = document.getElementById('alert-save');
 
 const inputTecnico = document.getElementById('input-tecnico');
 const inputEmpresa = document.getElementById('input-empresa');
-const inputContrato = document.getElementById('input-contrato');
 const inputCidade = document.getElementById('input-cidade');
+const inputContrato = document.getElementById('input-contrato');
+
+const listaEmpresasDatalist = document.getElementById('lista-empresas');
+const listaCidadesDatalist = document.getElementById('lista-cidades');
 
 let listaImagens = [];
 let localizacaoAtual = null;
 let enderecoAtual = "Não disponível";
 
-// Promise para coordenar a busca paralela em segundo plano
 let buscaMetadadosPromise = null;
 
+// --- POPULAR DATALIST DE EMPRESAS NO INÍCIO ---
+const empresasUnicas = [...new Set(dadosMapeamento.map(item => item.e))].sort();
+empresasUnicas.forEach(emp => {
+    const opt = document.createElement('option');
+    opt.value = emp;
+    listaEmpresasDatalist.appendChild(opt);
+});
+
+// --- FUNÇÃO PARA ATUALIZAR AS CIDADES BASEADO NA EMPRESA SELECIONADA ---
+function atualizarCidadesDaEmpresa(empresaNome) {
+    listaCidadesDatalist.innerHTML = '';
+    
+    if (!empresaNome) {
+        inputCidade.disabled = true;
+        inputCidade.value = '';
+        return;
+    }
+
+    const cidadesFiltradas = dadosMapeamento
+        .filter(item => item.e === empresaNome)
+        .map(item => item.c)
+        .sort();
+
+    if (cidadesFiltradas.length > 0) {
+        cidadesFiltradas.forEach(cid => {
+            const opt = document.createElement('option');
+            opt.value = cid;
+            listaCidadesDatalist.appendChild(opt);
+        });
+        inputCidade.disabled = false;
+    } else {
+        inputCidade.disabled = true;
+        inputCidade.value = '';
+    }
+}
+
 // --- CARREGAR CACHE DO NAVEGADOR (LocalStorage) ---
-inputTecnico.value = localStorage.getItem('login_tecnico') || '';
-inputEmpresa.value = localStorage.getItem('nome_empresa') || '';
+const tecnicoCache = localStorage.getItem('login_tecnico') || '';
+const empresaCache = localStorage.getItem('nome_empresa') || '';
 
-// --- SALVAR EM CACHE AO DIGITAR E VALIDAR FORMULÁRIO ---
-inputTecnico.addEventListener('input', () => {
-    localStorage.setItem('login_tecnico', inputTecnico.value.trim());
+inputTecnico.value = tecnicoCache.toUpperCase();
+inputEmpresa.value = empresaCache.toUpperCase();
+
+// Se já houver empresa em cache, inicializa as cidades dela
+if (empresasUnicas.includes(inputEmpresa.value)) {
+    atualizarCidadesDaEmpresa(inputEmpresa.value);
+}
+
+// --- NORMALIZAÇÃO EM MAIÚSCULO E ESCUTADORES ---
+inputTecnico.addEventListener('input', (e) => {
+    const val = e.target.value.toUpperCase();
+    e.target.value = val;
+    localStorage.setItem('login_tecnico', val);
     validarEstadoFormulario();
 });
 
-inputEmpresa.addEventListener('input', () => {
-    localStorage.setItem('nome_empresa', inputEmpresa.value.trim());
+inputEmpresa.addEventListener('input', (e) => {
+    const val = e.target.value.toUpperCase();
+    e.target.value = val;
+    localStorage.setItem('nome_empresa', val);
+    
+    // Se o valor digitado corresponder a uma empresa real, filtra as cidades
+    if (empresasUnicas.includes(val)) {
+        atualizarCidadesDaEmpresa(val);
+    } else {
+        atualizarCidadesDaEmpresa('');
+    }
     validarEstadoFormulario();
 });
 
-inputContrato.addEventListener('input', validarEstadoFormulario);
-inputCidade.addEventListener('input', validarEstadoFormulario);
+inputCidade.addEventListener('input', (e) => {
+    const val = e.target.value.toUpperCase();
+    e.target.value = val;
+    validarEstadoFormulario();
+});
+
+inputContrato.addEventListener('input', (e) => {
+    const val = e.target.value.toUpperCase();
+    e.target.value = val;
+    validarEstadoFormulario();
+});
 
 // --- FUNÇÃO PARA CONTROLAR A ATIVAÇÃO DO BOTÃO SALVAR ---
 function validarEstadoFormulario() {
@@ -253,14 +488,12 @@ function validarEstadoFormulario() {
     const temImagens = listaImagens.length > 0;
     const temGps = localizacaoAtual !== null;
 
-    // Se tiver fotos, mas não tiver capturado o GPS ainda, mostra o botão de atualização do GPS
     if (temImagens && !temGps) {
         btnAtualizarGps.style.display = 'block';
     } else {
         btnAtualizarGps.style.display = 'none';
     }
 
-    // Só habilita o botão de salvar se TODOS os campos estiverem preenchidos, possuir fotos e possuir GPS válido
     if (contrato && cidade && tecnico && empresa && temImagens && temGps) {
         btnSalvar.disabled = false;
     } else {
@@ -328,10 +561,10 @@ function iniciarCapturaMetadados() {
     });
 }
 
-// --- DISPARAR BUSCA DO GPS MANUALMENTE (PELO BOTÃO DE ALERTA) ---
+// --- DISPARAR BUSCA DO GPS MANUALMENTE ---
 btnAtualizarGps.addEventListener('click', () => {
     btnAtualizarGps.disabled = true;
-    btnAtualizarGps.textContent = "Buscando sinal de satélite...";
+    btnAtualizarGps.textContent = "BUSCANDO SATÉLITE...";
     geoInfo.style.display = 'block';
     geoInfo.textContent = "Obtendo localização atual...";
 
@@ -347,9 +580,8 @@ btnAtualizarGps.addEventListener('click', () => {
                 geoInfo.innerHTML = `📍 Lat: ${lat} | Lon: ${lon}<br>🏠 ${enderecoAtual}`;
                 
                 btnAtualizarGps.disabled = false;
-                btnAtualizarGps.textContent = "⚠️ Atualizar Geolocalização";
+                btnAtualizarGps.textContent = "⚠️ ATUALIZAR GEOLOCALIZAÇÃO";
                 
-                // Reprocessa a lista de fotos para garantir que elas sejam estampadas com o novo GPS válido
                 const fotosOriginais = [...listaImagens];
                 listaImagens = [];
                 previewGrid.innerHTML = "";
@@ -366,7 +598,7 @@ btnAtualizarGps.addEventListener('click', () => {
                 console.error(error);
                 geoInfo.innerHTML = "⚠️ Não foi possível obter o GPS. Certifique-se de autorizar a localização do navegador.";
                 btnAtualizarGps.disabled = false;
-                btnAtualizarGps.textContent = "⚠️ Atualizar Geolocalização";
+                btnAtualizarGps.textContent = "⚠️ ATUALIZAR GEOLOCALIZAÇÃO";
                 validarEstadoFormulario();
             },
             { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
@@ -374,7 +606,7 @@ btnAtualizarGps.addEventListener('click', () => {
     } else {
         alert("Navegador sem suporte a GPS.");
         btnAtualizarGps.disabled = false;
-        btnAtualizarGps.textContent = "⚠️ Atualizar Geolocalização";
+        btnAtualizarGps.textContent = "⚠️ ATUALIZAR GEOLOCALIZAÇÃO";
     }
 });
 
@@ -550,10 +782,9 @@ btnSalvar.addEventListener('click', async () => {
     }
 
     btnSalvar.disabled = true;
-    btnSalvar.textContent = "Salvando dados no Azure...";
+    btnSalvar.textContent = "SALVANDO DADOS NO AZURE...";
     alertSave.style.display = 'none';
 
-    // Montagem do payload contendo os novos campos de Técnico e Empresa
     const payloadEvidencia = {
         contrato: contrato,
         cidade: cidade,
@@ -575,9 +806,9 @@ btnSalvar.addEventListener('click', async () => {
 
         if (response.ok) {
             alertSave.style.display = 'block';
-            alertSave.innerHTML = `✅ Evidência Gravada no Azure com Sucesso!<br>
+            alertSave.innerHTML = `✅ EVIDÊNCIA GRAVADA NO AZURE COM SUCESSO!<br>
                                    <span style="font-size:12px; font-weight:normal;">
-                                   Contrato: ${contrato} | Fotos Armazenadas: ${listaImagens.length}
+                                   CONTRATO: ${contrato} | FOTOS ARMAZENADAS: ${listaImagens.length}
                                    </span>`;
 
             // Reseta apenas os campos dinâmicos (NÃO apaga o Técnico e Empresa do cache)
@@ -588,6 +819,14 @@ btnSalvar.addEventListener('click', async () => {
             enderecoAtual = "Não disponível";
             previewGrid.innerHTML = "";
             geoInfo.style.display = 'none';
+            
+            // Recarrega as cidades para a empresa que ainda está selecionada/salva
+            if (empresasUnicas.includes(inputEmpresa.value)) {
+                atualizarCidadesDaEmpresa(inputEmpresa.value);
+            } else {
+                atualizarCidadesDaEmpresa('');
+            }
+            
             validarEstadoFormulario();
         } else {
             alert("Erro reportado pelo servidor: " + (resultado.error || "Ocorreu um erro desconhecido."));
@@ -599,7 +838,7 @@ btnSalvar.addEventListener('click', async () => {
         alert("Erro ao conectar ao servidor do Azure.");
         validarEstadoFormulario();
     } finally {
-        btnSalvar.textContent = "Salvar Evidência";
+        btnSalvar.textContent = "SALVAR EVIDÊNCIA";
         setTimeout(() => {
             alertSave.style.display = 'none';
         }, 8000);
