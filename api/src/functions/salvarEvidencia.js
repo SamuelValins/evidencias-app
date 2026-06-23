@@ -53,7 +53,7 @@ app.http('salvarEvidencia', {
 
             // --- 3. SALVAR METADADOS NO TABLE STORAGE ---
             const tableClient = TableClient.fromConnectionString(connectionString, 'EvidenciasTable');
-            await tableClient.createTableIfNotExists();
+            await tableClient.createTable();
 
             const partitionKey = cidade.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
             const rowKey = `${contrato}-${Date.now()}`;
