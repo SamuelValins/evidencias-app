@@ -181,7 +181,6 @@ body{
     transform: scale(1.05);
 }
 
-/* Estado de carregamento ou vazio */
 .no-data {
     text-align: center;
     padding: 40px;
@@ -192,6 +191,18 @@ body{
 </head>
 
 <body>
+
+<!-- Modal de Autenticação com Tela Inteira -->
+<div id="auth-modal" style="display: flex; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #0f172a; justify-content: center; align-items: center; z-index: 9999;">
+    <div style="background: #1e293b; padding: 30px; border-radius: 12px; max-width: 400px; width: 90%; border: 1px solid #334155; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.5);">
+        <span style="font-size: 40px;">🔒</span>
+        <h2 style="margin-top: 10px;">Acesso Restrito</h2>
+        <p style="color: #94a3b8; font-size: 14px; margin-bottom: 20px;">Por favor, digite o Token de Acesso Gerencial para visualizar as evidências.</p>
+        <input type="password" id="input-token-acesso" placeholder="Digite o token..." style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: white; box-sizing: border-box; font-size: 16px; margin-bottom: 15px; text-align: center;">
+        <button id="btn-autenticar" style="background: #2563eb; color: white; border: none; padding: 12px; border-radius: 8px; width: 100%; font-weight: bold; cursor: pointer; font-size: 16px; transition: background 0.2s;">Acessar Painel</button>
+        <p id="auth-error" style="color: #ef4444; font-size: 14px; margin-top: 15px; display: none; font-weight: bold;"></p>
+    </div>
+</div>
 
 <div class="header">
     <span>📊 Painel Gerencial - Evidências</span>
@@ -249,13 +260,12 @@ body{
 
     <!-- Lista de Resultados Agrupados -->
     <div id="resultados-container">
-        <div class="no-data">Carregando dados das evidências do Azure...</div>
+        <div class="no-data">Por favor, faça o login acima para carregar as informações.</div>
     </div>
 
 </div>
 
 <script>
-// Lista de armazenamento global das evidências recebidas da API
 let todasEvidencias = [];
 
 const resultadosContainer = document.getElementById('resultados-container');
@@ -270,25 +280,85 @@ const metricEmpresas = document.getElementById('metric-empresas');
 const metricLogins = document.getElementById('metric-logins');
 const metricTotal = document.getElementById('metric-total');
 
-// --- CARREGAR DADOS DO AZURE ---
-async function carregarDados() {
+// Elementos de Login
+const authModal = document.getElementById('auth-modal');
+const inputTokenAcesso = document.getElementById('input-token-acesso');
+const btnAutenticar = document.getElementById('btn-autenticar');
+const authError = document.getElementById('auth-error');
+
+// --- VERIFICAR SE O TOKEN JÁ ESTÁ EM CACHE DESTA ABA ---
+const tokenSalvo = sessionStorage.getItem('painel_token');
+if (tokenSalvo) {
+    authModal.style.display = 'none';
+    carregarDados(tokenSalvo);
+}
+
+btnAutenticar.addEventListener('click', () => {
+    const token = inputTokenAcesso.value.trim();
+    if (!token) {
+        authError.textContent = "Por favor, insira o token.";
+        authError.style.display = 'block';
+        return;
+    }
+    authError.style.display = 'none';
+    btnAutenticar.disabled = true;
+    btnAutenticar.textContent = "Verificando...";
+    carregarDados(token);
+});
+
+// Permite pressionar "Enter" no teclado para logar
+inputTokenAcesso.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') btnAutenticar.click();
+});
+
+// --- CARREGAR DADOS DO AZURE (ENVIANDO O TOKEN NO CABEÇALHO) ---
+async function carregarDados(token) {
     try {
-        const response = await fetch('/api/obterEvidencias');
-        if (!response.ok) throw new Error('Não foi possível obter os dados.');
+        const response = await fetch('/api/obterEvidencias', {
+            headers: {
+                'x-access-token': token // Envia a credencial na requisição HTTP
+            }
+        });
+
+        if (response.status === 401) {
+            throw new Error('Token de acesso incorreto ou expirado.');
+        }
+        
+        if (!response.ok) {
+            const errObj = await response.json();
+            throw new Error(errObj.error || 'Falha de comunicação com o Azure.');
+        }
         
         todasEvidencias = await response.json();
+        
+        // Se deu sucesso, salva o token na sessão ativa do navegador e esconde o login
+        sessionStorage.setItem('painel_token', token);
+        authModal.style.display = 'none';
         
         popularOpcoesFiltro();
         processarEFiltarDados();
         
     } catch (e) {
         console.error(e);
-        resultadosContainer.innerHTML = `<div class="no-data" style="color: #ef4444;">⚠️ Erro ao obter dados do Azure: ${e.message}</div>`;
+        
+        // Exibe o erro na própria caixa de login e reseta o botão
+        authError.textContent = e.message;
+        authError.style.display = 'block';
+        authModal.style.display = 'flex';
+        
+        sessionStorage.removeItem('painel_token');
+        btnAutenticar.disabled = false;
+        btnAutenticar.textContent = "Acessar Painel";
+        
+        resultadosContainer.innerHTML = `<div class="no-data" style="color: #ef4444;">⚠️ Acesso negado. Insira um token válido para prosseguir.</div>`;
     }
 }
 
-// --- POPULAR OS SELECTS DE EMPRESAS E TÉCNICOS DINAMICAMENTE ---
 function popularOpcoesFiltro() {
+    // Limpa filtros anteriores para evitar duplicidade
+    filtroEmpresa.innerHTML = '<option value="">Todas as Empresas</option>';
+    filtroTecnico.innerHTML = '<option value="">Todos os Técnicos</option>';
+
     const empresasUnicas = [...new Set(todasEvidencias.map(item => item.empresa).filter(Boolean))];
     const tecnicosUnicos = [...new Set(todasEvidencias.map(item => item.tecnico).filter(Boolean))];
 
@@ -307,7 +377,6 @@ function popularOpcoesFiltro() {
     });
 }
 
-// --- PROCESSAR FILTROS E AGRUPAR POR CONTRATO ---
 function processarEFiltarDados() {
     const dataInicioVal = filtroDataInicio.value;
     const dataFimVal = filtroDataFim.value;
@@ -315,11 +384,9 @@ function processarEFiltarDados() {
     const tecnicoVal = filtroTecnico.value;
     const contratoVal = filtroContrato.value.trim().toLowerCase();
 
-    // 1. Aplicação dos Filtros Ativos
     const dadosFiltrados = todasEvidencias.filter(item => {
         let manter = true;
 
-        // Filtro de Datas (Calendário)
         if (item.dataHora) {
             const dataItem = new Date(item.dataHora);
             
@@ -333,27 +400,20 @@ function processarEFiltarDados() {
             }
         }
 
-        // Filtro de Empresa
         if (empresaVal && item.empresa !== empresaVal) manter = false;
-
-        // Filtro de Técnico
         if (tecnicoVal && item.tecnico !== tecnicoVal) manter = false;
-
-        // Filtro de Contrato
         if (contratoVal && (!item.contrato || !item.contrato.toLowerCase().includes(contratoVal))) manter = false;
 
         return manter;
     });
 
-    // 2. Atualizar os Painéis de Métrica com base nos dados filtrados
     const empresasFiltradas = [...new Set(dadosFiltrados.map(item => item.empresa).filter(Boolean))];
-    const loginsFiltrados = [...new Set(dadosFiltrados.map(item => item.tecnico).filter(Boolean))];
+    const loginsFiltradas = [...new Set(dadosFiltrados.map(item => item.tecnico).filter(Boolean))];
     
     metricEmpresas.textContent = empresasFiltradas.length;
-    metricLogins.textContent = loginsFiltrados.length;
+    metricLogins.textContent = loginsFiltradas.length;
     metricTotal.textContent = dadosFiltrados.length;
 
-    // 3. Agrupar os resultados filtrados pelo campo "Contrato"
     const contratosAgrupados = {};
     dadosFiltrados.forEach(item => {
         if (!contratosAgrupados[item.contrato]) {
@@ -365,7 +425,6 @@ function processarEFiltarDados() {
     renderizarResultados(contratosAgrupados);
 }
 
-// --- RENDERIZAR OS DADOS AGRUPADOS NA TELA ---
 function renderizarResultados(contratosAgrupados) {
     const chavesContratos = Object.keys(contratosAgrupados);
 
@@ -378,11 +437,8 @@ function renderizarResultados(contratosAgrupados) {
 
     chavesContratos.forEach(contrato => {
         const ocorrencias = contratosAgrupados[contrato];
-        
-        // Garante a ordenação interna dentro de cada contrato da data mais próxima para a mais distante
         ocorrencias.sort((a, b) => new Date(b.dataHora) - new Date(a.dataHora));
 
-        // Estrutura do bloco do contrato recorrente
         const blocoContrato = document.createElement('div');
         blocoContrato.className = 'contrato-block';
 
@@ -393,14 +449,12 @@ function renderizarResultados(contratosAgrupados) {
             </div>
         `;
 
-        // Lista de evidências desse contrato específico
         ocorrencias.forEach(item => {
             const divEvidencia = document.createElement('div');
             divEvidencia.className = 'evidencia-item';
 
             const dataFormatada = new Date(item.dataHora).toLocaleString('pt-BR');
 
-            // HTML do registro de evidência individual
             let htmlEvidencia = `
                 <div class="evidencia-meta">
                     <span>📅 Realizado em: <strong>${dataFormatada}</strong></span>
@@ -413,7 +467,6 @@ function renderizarResultados(contratosAgrupados) {
                 </div>
             `;
 
-            // Renderização das fotos atreladas à evidência
             if (item.urlsFotos && item.urlsFotos.length > 0) {
                 htmlEvidencia += `<div class="evidencia-gallery">`;
                 item.urlsFotos.forEach(url => {
@@ -421,7 +474,7 @@ function renderizarResultados(contratosAgrupados) {
                 });
                 htmlEvidencia += `</div>`;
             } else {
-                htmlEvidencia += `<div style="font-size: 12px; color:#ef4444; margin-top:5px;">⚠️ Nenhuma imagem anexada a este registro.</div>`;
+                htmlEvidencia += `<div style="font-size: 12px; color:#ef4444; margin-top:5px;">⚠️ Nenhuma imagem anexada.</div>`;
             }
 
             divEvidencia.innerHTML = htmlEvidencia;
@@ -432,15 +485,11 @@ function renderizarResultados(contratosAgrupados) {
     });
 }
 
-// --- ESCUTADORES DE EVENTO PARA OS FILTROS ---
 filtroDataInicio.addEventListener('change', processarEFiltarDados);
 filtroDataFim.addEventListener('change', processarEFiltarDados);
 filtroEmpresa.addEventListener('change', processarEFiltarDados);
 filtroTecnico.addEventListener('change', processarEFiltarDados);
 filtroContrato.addEventListener('input', processarEFiltarDados);
-
-// Inicializa a carga dos dados do Azure ao carregar a página
-carregarDados();
 </script>
 
 </body>
