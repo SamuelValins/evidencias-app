@@ -53,7 +53,7 @@ label{
     color: #94a3b8;
 }
 
-input{
+input, select {
     width:100%;
     padding:12px;
     border-radius:8px;
@@ -63,9 +63,11 @@ input{
     margin-top: 5px;
     box-sizing: border-box;
     text-transform: uppercase; 
+    font-family: inherit;
+    font-size: 14px;
 }
 
-input:disabled {
+input:disabled, select:disabled {
     background: #1e293b;
     border-color: #1e293b;
     color: #475569;
@@ -202,6 +204,20 @@ button{
 <!-- Contrato -->
 <label>Contrato</label>
 <input id="input-contrato" placeholder="DIGITE O CONTRATO">
+
+<!-- Tipo de Serviço -->
+<label>Tipo de Serviço</label>
+<select id="select-servico">
+    <option value="">SELECIONE O TIPO DE SERVIÇO</option>
+    <option value="RETIRADA">RETIRADA</option>
+    <option value="BOX">BOX</option>
+</select>
+
+<!-- Janela de Serviço (Dinamico) -->
+<label>Janela</label>
+<select id="select-janela" disabled>
+    <option value="">SELECIONE A JANELA (ESCOLHA O SERVIÇO ANTES)</option>
+</select>
 
 <!-- Inputs ocultos para Câmera e Galeria -->
 <input type="file" id="camera-input" accept="image/*" capture="environment" style="display:none;">
@@ -386,6 +402,9 @@ const inputEmpresa = document.getElementById('input-empresa');
 const inputCidade = document.getElementById('input-cidade');
 const inputContrato = document.getElementById('input-contrato');
 
+const selectServico = document.getElementById('select-servico');
+const selectJanela = document.getElementById('select-janela');
+
 const listaEmpresasDatalist = document.getElementById('lista-empresas');
 const listaCidadesDatalist = document.getElementById('lista-cidades');
 
@@ -431,6 +450,41 @@ function atualizarCidadesDaEmpresa(empresaNome) {
     }
 }
 
+// --- DINAMISMO DO CAMPO JANELA BASEADO NO TIPO DE SERVIÇO ---
+function atualizarOpcoesJanela(servico) {
+    selectJanela.innerHTML = '';
+    
+    if (!servico) {
+        const optDefault = document.createElement('option');
+        optDefault.value = "";
+        optDefault.textContent = "SELECIONE A JANELA (ESCOLHA O SERVIÇO ANTES)";
+        selectJanela.appendChild(optDefault);
+        selectJanela.disabled = true;
+        return;
+    }
+
+    const optPlaceholder = document.createElement('option');
+    optPlaceholder.value = "";
+    optPlaceholder.textContent = "SELECIONE A JANELA DE ATENDIMENTO";
+    selectJanela.appendChild(optPlaceholder);
+
+    let janelas = [];
+    if (servico === "RETIRADA") {
+        janelas = ["08HRS-11HRS", "11HRS-14HRS", "14HRS-17HRS"];
+    } else if (servico === "BOX") {
+        janelas = ["08HRS-12HRS", "12HRS-18HRS"];
+    }
+
+    janelas.forEach(janela => {
+        const opt = document.createElement('option');
+        opt.value = janela;
+        opt.textContent = janela;
+        selectJanela.appendChild(opt);
+    });
+
+    selectJanela.disabled = false;
+}
+
 // --- CARREGAR CACHE DO NAVEGADOR (LocalStorage) ---
 const tecnicoCache = localStorage.getItem('login_tecnico') || '';
 const empresaCache = localStorage.getItem('nome_empresa') || '';
@@ -471,7 +525,6 @@ inputEmpresa.addEventListener('input', (e) => {
     
     if (empresasUnicas.includes(val)) {
         atualizarCidadesDaEmpresa(val);
-        // Limpa o input e o cache da cidade se o técnico mudar de empresa
         inputCidade.value = '';
         localStorage.removeItem('nome_cidade');
     } else {
@@ -486,7 +539,6 @@ inputCidade.addEventListener('input', (e) => {
     const val = e.target.value.toUpperCase();
     e.target.value = val;
     
-    // Só grava a cidade no cache se ela for uma cidade válida para a empresa selecionada
     const cidadesValidas = dadosMapeamento
         .filter(item => item.e === inputEmpresa.value)
         .map(item => item.c);
@@ -505,12 +557,24 @@ inputContrato.addEventListener('input', (e) => {
     validarEstadoFormulario();
 });
 
+selectServico.addEventListener('change', (e) => {
+    const servico = e.target.value;
+    atualizarOpcoesJanela(servico);
+    validarEstadoFormulario();
+});
+
+selectJanela.addEventListener('change', () => {
+    validarEstadoFormulario();
+});
+
 // --- FUNÇÃO PARA CONTROLAR A ATIVAÇÃO DO BOTÃO SALVAR ---
 function validarEstadoFormulario() {
     const contrato = inputContrato.value.trim();
     const cidade = inputCidade.value.trim();
     const tecnico = inputTecnico.value.trim();
     const empresa = inputEmpresa.value.trim();
+    const servico = selectServico.value;
+    const janela = selectJanela.value;
     const temImagens = listaImagens.length > 0;
     const temGps = localizacaoAtual !== null;
 
@@ -520,7 +584,7 @@ function validarEstadoFormulario() {
         btnAtualizarGps.style.display = 'none';
     }
 
-    if (contrato && cidade && tecnico && empresa && temImagens && temGps) {
+    if (contrato && cidade && tecnico && empresa && servico && janela && temImagens && temGps) {
         btnSalvar.disabled = false;
     } else {
         btnSalvar.disabled = true;
@@ -796,8 +860,10 @@ btnSalvar.addEventListener('click', async () => {
     const cidade = inputCidade.value.trim();
     const tecnico = inputTecnico.value.trim();
     const empresa = inputEmpresa.value.trim();
+    const servico = selectServico.value;
+    const janela = selectJanela.value;
 
-    if (!contrato || !cidade || !tecnico || !empresa) {
+    if (!contrato || !cidade || !tecnico || !empresa || !servico || !janela) {
         alert("Preencha todos os campos do formulário.");
         return;
     }
@@ -816,6 +882,8 @@ btnSalvar.addEventListener('click', async () => {
         cidade: cidade,
         tecnico: tecnico,
         empresa: empresa,
+        servico: servico,
+        janela: janela,
         localizacao: localizacaoAtual,
         endereco: enderecoAtual,
         imagens: listaImagens
@@ -837,15 +905,17 @@ btnSalvar.addEventListener('click', async () => {
                                    CONTRATO: ${contrato} | FOTOS ARMAZENADAS: ${listaImagens.length}
                                    </span>`;
 
-            // Reseta APENAS o contrato e a lista de fotos (MANTÉM Técnico, Empresa e Cidade preenchidos)
+            // Reseta contrato, fotos, serviço e janela (MANTÉM Técnico, Empresa e Cidade salvos)
             inputContrato.value = "";
+            selectServico.value = "";
+            atualizarOpcoesJanela(""); // Limpa e bloqueia a janela
+            
             listaImagens = [];
             localizacaoAtual = null;
             enderecoAtual = "Não disponível";
             previewGrid.innerHTML = "";
             geoInfo.style.display = 'none';
             
-            // Recarrega as cidades para a empresa que continua selecionada
             if (empresasUnicas.includes(inputEmpresa.value)) {
                 atualizarCidadesDaEmpresa(inputEmpresa.value);
             } else {
