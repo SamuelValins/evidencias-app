@@ -8,7 +8,7 @@
 <style>
 body{
     margin:0;
-    font-family:Segoe UI;
+    font-family:Segoe UI, sans-serif;
     background:#0f172a;
     color:white;
 }
@@ -22,6 +22,8 @@ body{
 
 .container{
     padding:20px;
+    max-width: 500px;
+    margin: 0 auto;
 }
 
 .card{
@@ -31,21 +33,64 @@ body{
     margin-bottom:20px;
 }
 
+label{
+    display: block;
+    margin-top: 15px;
+    font-size: 14px;
+    color: #94a3b8;
+}
+
 input{
     width:100%;
     padding:12px;
     border-radius:8px;
-    border:none;
-    margin-top:10px;
+    border:1px solid #334155;
+    background: #0f172a;
+    color: white;
+    margin-top: 5px;
+    box-sizing: border-box;
 }
 
 button{
     background:#2563eb;
     color:white;
-    padding:12px 20px;
+    padding:14px 20px;
     border:none;
     border-radius:8px;
     margin-top:20px;
+    width: 100%;
+    font-weight: bold;
+    cursor: pointer;
+    font-size: 16px;
+}
+
+button:active {
+    background: #1d4ed8;
+}
+
+/* Área de visualização do resultado */
+.preview-container {
+    margin-top: 20px;
+    text-align: center;
+}
+
+#preview-img {
+    display: none;
+    width: 100%;
+    border-radius: 8px;
+    margin-top: 10px;
+    border: 2px solid #334155;
+}
+
+.geo-badge {
+    display: none;
+    background: #1e293b;
+    border: 1px dashed #334155;
+    padding: 10px;
+    border-radius: 8px;
+    margin-top: 10px;
+    font-size: 14px;
+    color: #38bdf8;
 }
 </style>
 </head>
@@ -62,16 +107,81 @@ button{
 <h2>Nova Evidência</h2>
 
 <label>Contrato</label>
-<input placeholder="Digite o contrato">
+<input id="input-contrato" placeholder="Digite o contrato">
 
 <label>Cidade</label>
-<input placeholder="Digite a cidade">
+<input id="input-cidade" placeholder="Digite a cidade">
 
-<button>Tirar Foto</button>
+<!-- Campo oculto para acionar a câmera nativa do dispositivo -->
+<input type="file" id="camera-input" accept="image/*" capture="environment" style="display:none;">
 
+<button id="btn-tirar-foto">Tirar Foto & Capturar GPS</button>
+
+<div class="preview-container">
+    <div id="geo-info" class="geo-badge"></div>
+    <img id="preview-img" alt="Foto da Evidência">
 </div>
 
 </div>
+
+</div>
+
+<script>
+const btnTirarFoto = document.getElementById('btn-tirar-foto');
+const cameraInput = document.getElementById('camera-input');
+const previewImg = document.getElementById('preview-img');
+const geoInfo = document.getElementById('geo-info');
+
+btnTirarFoto.addEventListener('click', () => {
+    geoInfo.style.display = 'block';
+    geoInfo.textContent = "Obtendo localização GPS...";
+
+    // 1. Solicita a geolocalização do dispositivo primeiro
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const lat = position.coords.latitude.toFixed(6);
+                const lon = position.coords.longitude.toFixed(6);
+                
+                // Exibe as coordenadas na tela
+                geoInfo.innerHTML = `📍 <strong>Localização capturada:</strong><br>Lat: ${lat} | Lon: ${lon}`;
+                
+                // 2. Abre a câmera do dispositivo após obter a localização
+                cameraInput.click();
+            },
+            (error) => {
+                console.error(error);
+                geoInfo.innerHTML = "⚠️ Não foi possível obter o GPS. Certifique-se de permitir o acesso à localização.";
+                
+                // Abre a câmera mesmo se houver falha no GPS
+                cameraInput.click();
+            },
+            {
+                enableHighAccuracy: true, // Solicita alta precisão de GPS
+                timeout: 10000,           // Aguarda até 10 segundos
+                maximumAge: 0             // Força busca de localização em tempo real
+            }
+        );
+    } else {
+        geoInfo.textContent = "⚠️ Geolocalização não é suportada neste navegador.";
+        cameraInput.click();
+    }
+});
+
+// 3. Captura o arquivo de imagem assim que o usuário tira a foto
+cameraInput.addEventListener('change', (event) => {
+    const file = event.target.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            // Mostra a foto capturada na tela
+            previewImg.src = e.target.result;
+            previewImg.style.display = 'block';
+        }
+        reader.readAsDataURL(file);
+    }
+});
+</script>
 
 </body>
 </html>
