@@ -9,7 +9,6 @@ app.http('salvarEvidencia', {
     authLevel: 'anonymous',
     handler: async (request, context) => {
         try {
-            // 1. Verificação preventiva da conexão do Azure
             if (!connectionString) {
                 return { 
                     status: 500, 
@@ -18,14 +17,14 @@ app.http('salvarEvidencia', {
             }
 
             const body = await request.json();
-            // Lendo os novos parâmetros enviados pelo frontend (tecnico e empresa)
-            const { contrato, cidade, tecnico, empresa, localizacao, endereco, imagens } = body;
+            // Lendo os novos parâmetros enviados pelo frontend (servico e janela)
+            const { contrato, cidade, tecnico, empresa, servico, janela, localizacao, endereco, imagens } = body;
 
-            if (!contrato || !cidade || !tecnico || !empresa || !imagens || imagens.length === 0) {
+            if (!contrato || !cidade || !tecnico || !empresa || !servico || !janela || !imagens || imagens.length === 0) {
                 return { status: 400, jsonBody: { error: 'Dados incompletos fornecidos no formulário.' } };
             }
 
-            // --- 2. SALVAR FOTOS NO BLOB STORAGE ---
+            // --- SALVAR FOTOS NO BLOB STORAGE ---
             const blobServiceClient = BlobServiceClient.fromConnectionString(connectionString);
             const containerClient = blobServiceClient.getContainerClient('fotos-evidencias');
             await containerClient.createIfNotExists({ access: 'blob' });
@@ -50,21 +49,23 @@ app.http('salvarEvidencia', {
                 urlsImagens.push(blockBlobClient.url);
             }
 
-            // --- 3. SALVAR METADADOS NO TABLE STORAGE ---
+            // --- SALVAR METADADOS NO TABLE STORAGE ---
             const tableClient = TableClient.fromConnectionString(connectionString, 'EvidenciasTable');
             await tableClient.createTable();
 
             const partitionKey = cidade.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
             const rowKey = `${contrato}-${Date.now()}`;
 
-            // O registro agora armazena de forma estruturada o login do Técnico e Empresa
+            // Registro agora possui os campos servico e janela indexados
             const registroEvidencia = {
                 partitionKey: partitionKey,
                 rowKey: rowKey,
                 contrato: contrato,
                 cidade: cidade,
-                tecnico: tecnico,  // Novo campo na tabela
-                empresa: empresa,  // Novo campo na tabela
+                tecnico: tecnico,
+                empresa: empresa,
+                servico: servico,  // Novo campo na tabela
+                janela: janela,    // Novo campo na tabela
                 latitude: localizacao ? parseFloat(localizacao.latitude) : 0,
                 longitude: localizacao ? parseFloat(localizacao.longitude) : 0,
                 endereco: endereco || 'Não disponível',
