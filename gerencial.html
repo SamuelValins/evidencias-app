@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Painel Gerencial - Evidências</title>
+
+<style>
+body{
+    margin:0;
+    font-family:Segoe UI, sans-serif;
+    background:#0f172a;
+    color:white;
+}
+
+.header{
+    background:#1e293b;
+    padding:20px;
+    font-size:24px;
+    font-weight:bold;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.btn-navigation {
+    background: #475569;
+    color: white;
+    padding: 8px 15px;
+    text-decoration: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+.container{
+    padding:20px;
+    max-width: 1000px;
+    margin: 0 auto;
+}
+
+/* Área de Métricas */
+.metrics-container {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 15px;
+    margin-bottom: 25px;
+}
+
+.metric-card {
+    background: #1e293b;
+    padding: 20px;
+    border-radius: 10px;
+    text-align: center;
+    border: 1px solid #334155;
+}
+
+.metric-value {
+    font-size: 28px;
+    font-weight: bold;
+    color: #38bdf8;
+    margin-top: 5px;
+}
+
+/* Painel de Filtros */
+.filter-card {
+    background: #1e293b;
+    padding: 20px;
+    border-radius: 10px;
+    margin-bottom: 25px;
+    border: 1px solid #334155;
+}
+
+.filter-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.filter-group label {
+    font-size: 13px;
+    color: #94a3b8;
+    margin-bottom: 5px;
+}
+
+.filter-group select, .filter-group input {
+    padding: 10px;
+    border-radius: 6px;
+    border: 1px solid #475569;
+    background: #0f172a;
+    color: white;
+}
+
+/* Resultados Agrupados por Contrato */
+.contrato-block {
+    background: #1e293b;
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 25px;
+    border: 1px solid #334155;
+}
+
+.contrato-header {
+    border-bottom: 2px solid #334155;
+    padding-bottom: 10px;
+    margin-bottom: 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.contrato-title {
+    font-size: 20px;
+    font-weight: bold;
+    color: #38bdf8;
+}
+
+.contrato-count {
+    background: #0f172a;
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    border: 1px solid #334155;
+}
+
+/* Lista de Evidências dentro do contrato */
+.evidencia-item {
+    background: #0f172a;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 15px;
+    border: 1px solid #334155;
+}
+
+.evidencia-meta {
+    font-size: 13px;
+    color: #94a3b8;
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    border-bottom: 1px solid #1e293b;
+    padding-bottom: 8px;
+    margin-bottom: 10px;
+}
+
+.evidencia-tag {
+    color: #38bdf8;
+    font-weight: bold;
+}
+
+.evidencia-location {
+    font-size: 13px;
+    margin-bottom: 10px;
+    color: #cbd5e1;
+}
+
+.evidencia-gallery {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.evidencia-img {
+    width: 100%;
+    aspect-ratio: 1;
+    object-fit: cover;
+    border-radius: 6px;
+    border: 1px solid #334155;
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+.evidencia-img:hover {
+    transform: scale(1.05);
+}
+
+/* Estado de carregamento ou vazio */
+.no-data {
+    text-align: center;
+    padding: 40px;
+    color: #94a3b8;
+    font-size: 16px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="header">
+    <span>📊 Painel Gerencial - Evidências</span>
+    <a href="/index.html" class="btn-navigation">Nova Evidência 📷</a>
+</div>
+
+<div class="container">
+
+    <!-- Métricas Consolidadas -->
+    <div class="metrics-container">
+        <div class="metric-card">
+            <div>Empresas Cadastradas</div>
+            <div id="metric-empresas" class="metric-value">0</div>
+        </div>
+        <div class="metric-card">
+            <div>Técnicos (Logins)</div>
+            <div id="metric-logins" class="metric-value">0</div>
+        </div>
+        <div class="metric-card">
+            <div>Total de Preenchimentos</div>
+            <div id="metric-total" class="metric-value">0</div>
+        </div>
+    </div>
+
+    <!-- Filtros Inteligentes -->
+    <div class="filter-card">
+        <h3>Filtros de Pesquisa</h3>
+        <div class="filter-grid">
+            <div class="filter-group">
+                <label>Data Início (Calendário)</label>
+                <input type="date" id="filtro-data-inicio">
+            </div>
+            <div class="filter-group">
+                <label>Data Fim (Calendário)</label>
+                <input type="date" id="filtro-data-fim">
+            </div>
+            <div class="filter-group">
+                <label>Filtrar por Empresa</label>
+                <select id="filtro-empresa">
+                    <option value="">Todas as Empresas</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>Filtrar por Técnico</label>
+                <select id="filtro-tecnico">
+                    <option value="">Todos os Técnicos</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>Contrato</label>
+                <input type="text" id="filtro-contrato" placeholder="Digite o contrato...">
+            </div>
+        </div>
+    </div>
+
+    <!-- Lista de Resultados Agrupados -->
+    <div id="resultados-container">
+        <div class="no-data">Carregando dados das evidências do Azure...</div>
+    </div>
+
+</div>
+
+<script>
+// Lista de armazenamento global das evidências recebidas da API
+let todasEvidencias = [];
+
+const resultadosContainer = document.getElementById('resultados-container');
+
+const filtroDataInicio = document.getElementById('filtro-data-inicio');
+const filtroDataFim = document.getElementById('filtro-data-fim');
+const filtroEmpresa = document.getElementById('filtro-empresa');
+const filtroTecnico = document.getElementById('filtro-tecnico');
+const filtroContrato = document.getElementById('filtro-contrato');
+
+const metricEmpresas = document.getElementById('metric-empresas');
+const metricLogins = document.getElementById('metric-logins');
+const metricTotal = document.getElementById('metric-total');
+
+// --- CARREGAR DADOS DO AZURE ---
+async function carregarDados() {
+    try {
+        const response = await fetch('/api/obterEvidencias');
+        if (!response.ok) throw new Error('Não foi possível obter os dados.');
+        
+        todasEvidencias = await response.json();
+        
+        popularOpcoesFiltro();
+        processarEFiltarDados();
+        
+    } catch (e) {
+        console.error(e);
+        resultadosContainer.innerHTML = `<div class="no-data" style="color: #ef4444;">⚠️ Erro ao obter dados do Azure: ${e.message}</div>`;
+    }
+}
+
+// --- POPULAR OS SELECTS DE EMPRESAS E TÉCNICOS DINAMICAMENTE ---
+function popularOpcoesFiltro() {
+    const empresasUnicas = [...new Set(todasEvidencias.map(item => item.empresa).filter(Boolean))];
+    const tecnicosUnicos = [...new Set(todasEvidencias.map(item => item.tecnico).filter(Boolean))];
+
+    empresasUnicas.sort().forEach(empresa => {
+        const opt = document.createElement('option');
+        opt.value = empresa;
+        opt.textContent = empresa;
+        filtroEmpresa.appendChild(opt);
+    });
+
+    tecnicosUnicos.sort().forEach(tecnico => {
+        const opt = document.createElement('option');
+        opt.value = tecnico;
+        opt.textContent = tecnico;
+        filtroTecnico.appendChild(opt);
+    });
+}
+
+// --- PROCESSAR FILTROS E AGRUPAR POR CONTRATO ---
+function processarEFiltarDados() {
+    const dataInicioVal = filtroDataInicio.value;
+    const dataFimVal = filtroDataFim.value;
+    const empresaVal = filtroEmpresa.value;
+    const tecnicoVal = filtroTecnico.value;
+    const contratoVal = filtroContrato.value.trim().toLowerCase();
+
+    // 1. Aplicação dos Filtros Ativos
+    const dadosFiltrados = todasEvidencias.filter(item => {
+        let manter = true;
+
+        // Filtro de Datas (Calendário)
+        if (item.dataHora) {
+            const dataItem = new Date(item.dataHora);
+            
+            if (dataInicioVal) {
+                const dataInicio = new Date(dataInicioVal + 'T00:00:00');
+                if (dataItem < dataInicio) manter = false;
+            }
+            if (dataFimVal) {
+                const dataFim = new Date(dataFimVal + 'T23:59:59');
+                if (dataItem > dataFim) manter = false;
+            }
+        }
+
+        // Filtro de Empresa
+        if (empresaVal && item.empresa !== empresaVal) manter = false;
+
+        // Filtro de Técnico
+        if (tecnicoVal && item.tecnico !== tecnicoVal) manter = false;
+
+        // Filtro de Contrato
+        if (contratoVal && (!item.contrato || !item.contrato.toLowerCase().includes(contratoVal))) manter = false;
+
+        return manter;
+    });
+
+    // 2. Atualizar os Painéis de Métrica com base nos dados filtrados
+    const empresasFiltradas = [...new Set(dadosFiltrados.map(item => item.empresa).filter(Boolean))];
+    const loginsFiltrados = [...new Set(dadosFiltrados.map(item => item.tecnico).filter(Boolean))];
+    
+    metricEmpresas.textContent = empresasFiltradas.length;
+    metricLogins.textContent = loginsFiltrados.length;
+    metricTotal.textContent = dadosFiltrados.length;
+
+    // 3. Agrupar os resultados filtrados pelo campo "Contrato"
+    const contratosAgrupados = {};
+    dadosFiltrados.forEach(item => {
+        if (!contratosAgrupados[item.contrato]) {
+            contratosAgrupados[item.contrato] = [];
+        }
+        contratosAgrupados[item.contrato].push(item);
+    });
+
+    renderizarResultados(contratosAgrupados);
+}
+
+// --- RENDERIZAR OS DADOS AGRUPADOS NA TELA ---
+function renderizarResultados(contratosAgrupados) {
+    const chavesContratos = Object.keys(contratosAgrupados);
+
+    if (chavesContratos.length === 0) {
+        resultadosContainer.innerHTML = '<div class="no-data">Nenhuma evidência localizada para os filtros definidos.</div>';
+        return;
+    }
+
+    resultadosContainer.innerHTML = '';
+
+    chavesContratos.forEach(contrato => {
+        const ocorrencias = contratosAgrupados[contrato];
+        
+        // Garante a ordenação interna dentro de cada contrato da data mais próxima para a mais distante
+        ocorrencias.sort((a, b) => new Date(b.dataHora) - new Date(a.dataHora));
+
+        // Estrutura do bloco do contrato recorrente
+        const blocoContrato = document.createElement('div');
+        blocoContrato.className = 'contrato-block';
+
+        blocoContrato.innerHTML = `
+            <div class="contrato-header">
+                <span class="contrato-title">Contrato: ${contrato}</span>
+                <span class="contrato-count">${ocorrencias.length} envio(s) recorrente(s)</span>
+            </div>
+        `;
+
+        // Lista de evidências desse contrato específico
+        ocorrencias.forEach(item => {
+            const divEvidencia = document.createElement('div');
+            divEvidencia.className = 'evidencia-item';
+
+            const dataFormatada = new Date(item.dataHora).toLocaleString('pt-BR');
+
+            // HTML do registro de evidência individual
+            let htmlEvidencia = `
+                <div class="evidencia-meta">
+                    <span>📅 Realizado em: <strong>${dataFormatada}</strong></span>
+                    <span>Técnico: <span class="evidencia-tag">${item.tecnico || 'N/A'}</span></span>
+                    <span>Empresa: <span class="evidencia-tag">${item.empresa || 'N/A'}</span></span>
+                </div>
+                <div class="evidencia-location">
+                    📍 <strong>GPS:</strong> Lat ${item.latitude || 'N/A'}, Lon ${item.longitude || 'N/A'}<br>
+                    🏠 <strong>Endereço:</strong> ${item.endereco || 'Não disponível'}
+                </div>
+            `;
+
+            // Renderização das fotos atreladas à evidência
+            if (item.urlsFotos && item.urlsFotos.length > 0) {
+                htmlEvidencia += `<div class="evidencia-gallery">`;
+                item.urlsFotos.forEach(url => {
+                    htmlEvidencia += `<img src="${url}" class="evidencia-img" onclick="window.open('${url}', '_blank')">`;
+                });
+                htmlEvidencia += `</div>`;
+            } else {
+                htmlEvidencia += `<div style="font-size: 12px; color:#ef4444; margin-top:5px;">⚠️ Nenhuma imagem anexada a este registro.</div>`;
+            }
+
+            divEvidencia.innerHTML = htmlEvidencia;
+            blocoContrato.appendChild(divEvidencia);
+        });
+
+        resultadosContainer.appendChild(blocoContrato);
+    });
+}
+
+// --- ESCUTADORES DE EVENTO PARA OS FILTROS ---
+filtroDataInicio.addEventListener('change', processarEFiltarDados);
+filtroDataFim.addEventListener('change', processarEFiltarDados);
+filtroEmpresa.addEventListener('change', processarEFiltarDados);
+filtroTecnico.addEventListener('change', processarEFiltarDados);
+filtroContrato.addEventListener('input', processarEFiltarDados);
+
+// Inicializa a carga dos dados do Azure ao carregar a página
+carregarDados();
+</script>
+
+</body>
+</html>
