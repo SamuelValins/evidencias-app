@@ -53,7 +53,6 @@ label{
     color: #94a3b8;
 }
 
-/* Força visualmente que a digitação seja sempre exibida em maiúsculo */
 input{
     width:100%;
     padding:12px;
@@ -195,12 +194,12 @@ button{
 <input id="input-empresa" list="lista-empresas" placeholder="SELECIONE OU DIGITE A EMPRESA">
 <datalist id="lista-empresas"></datalist>
 
-<!-- Cidade Autocomplete (Inicia desabilitado) -->
+<!-- Cidade Autocomplete -->
 <label>Cidade</label>
 <input id="input-cidade" list="lista-cidades" placeholder="SELECIONE A CIDADE (ESCOLHA A EMPRESA ANTES)" disabled>
 <datalist id="lista-cidades"></datalist>
 
-<!-- Contrato (Reposicionado abaixo de Cidade) -->
+<!-- Contrato -->
 <label>Contrato</label>
 <input id="input-contrato" placeholder="DIGITE O CONTRATO">
 
@@ -306,7 +305,6 @@ const dadosMapeamento = [
     {c:"MARILIA", e:"GRANSAT"},
     {c:"MATAO", e:"DANLEX DDD16/17"},
     {c:"MIRANDOPOLIS", e:"CANTOIA DDD14/18"},
-    {c:"MIRASSOL", e:"CANTOIA DDD17"},
     {c:"MIRASSOL", e:"CANTOIA DDD17"},
     {c:"MOCOCA", e:"NEW TIME"},
     {c:"MOGI GUACU", e:"ANTEC CAMPINAS"},
@@ -436,16 +434,29 @@ function atualizarCidadesDaEmpresa(empresaNome) {
 // --- CARREGAR CACHE DO NAVEGADOR (LocalStorage) ---
 const tecnicoCache = localStorage.getItem('login_tecnico') || '';
 const empresaCache = localStorage.getItem('nome_empresa') || '';
+const cidadeCache = localStorage.getItem('nome_cidade') || '';
 
 inputTecnico.value = tecnicoCache.toUpperCase();
 inputEmpresa.value = empresaCache.toUpperCase();
 
-// Se já houver empresa em cache, inicializa as cidades dela
+// Se já houver empresa em cache, inicializa as cidades dela e resgata a cidade salva
 if (empresasUnicas.includes(inputEmpresa.value)) {
     atualizarCidadesDaEmpresa(inputEmpresa.value);
+    
+    // Valida se a cidade do cache realmente pertence à empresa do cache
+    const cidadesValidas = dadosMapeamento
+        .filter(item => item.e === inputEmpresa.value)
+        .map(item => item.c);
+
+    if (cidadesValidas.includes(cidadeCache.toUpperCase())) {
+        inputCidade.value = cidadeCache.toUpperCase();
+    } else {
+        inputCidade.value = '';
+        localStorage.removeItem('nome_cidade');
+    }
 }
 
-// --- NORMALIZAÇÃO EM MAIÚSCULO E ESCUTADORES ---
+// --- NORMALIZAÇÃO EM MAIÚSCULO E SALVAMENTO DE CACHE ---
 inputTecnico.addEventListener('input', (e) => {
     const val = e.target.value.toUpperCase();
     e.target.value = val;
@@ -458,11 +469,15 @@ inputEmpresa.addEventListener('input', (e) => {
     e.target.value = val;
     localStorage.setItem('nome_empresa', val);
     
-    // Se o valor digitado corresponder a uma empresa real, filtra as cidades
     if (empresasUnicas.includes(val)) {
         atualizarCidadesDaEmpresa(val);
+        // Limpa o input e o cache da cidade se o técnico mudar de empresa
+        inputCidade.value = '';
+        localStorage.removeItem('nome_cidade');
     } else {
         atualizarCidadesDaEmpresa('');
+        inputCidade.value = '';
+        localStorage.removeItem('nome_cidade');
     }
     validarEstadoFormulario();
 });
@@ -470,6 +485,17 @@ inputEmpresa.addEventListener('input', (e) => {
 inputCidade.addEventListener('input', (e) => {
     const val = e.target.value.toUpperCase();
     e.target.value = val;
+    
+    // Só grava a cidade no cache se ela for uma cidade válida para a empresa selecionada
+    const cidadesValidas = dadosMapeamento
+        .filter(item => item.e === inputEmpresa.value)
+        .map(item => item.c);
+
+    if (cidadesValidas.includes(val)) {
+        localStorage.setItem('nome_cidade', val);
+    } else {
+        localStorage.removeItem('nome_cidade');
+    }
     validarEstadoFormulario();
 });
 
@@ -811,16 +837,15 @@ btnSalvar.addEventListener('click', async () => {
                                    CONTRATO: ${contrato} | FOTOS ARMAZENADAS: ${listaImagens.length}
                                    </span>`;
 
-            // Reseta apenas os campos dinâmicos (NÃO apaga o Técnico e Empresa do cache)
+            // Reseta APENAS o contrato e a lista de fotos (MANTÉM Técnico, Empresa e Cidade preenchidos)
             inputContrato.value = "";
-            inputCidade.value = "";
             listaImagens = [];
             localizacaoAtual = null;
             enderecoAtual = "Não disponível";
             previewGrid.innerHTML = "";
             geoInfo.style.display = 'none';
             
-            // Recarrega as cidades para a empresa que ainda está selecionada/salva
+            // Recarrega as cidades para a empresa que continua selecionada
             if (empresasUnicas.includes(inputEmpresa.value)) {
                 atualizarCidadesDaEmpresa(inputEmpresa.value);
             } else {
