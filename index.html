@@ -70,6 +70,11 @@ button{
 .btn-primary:active {
     background: #1d4ed8;
 }
+.btn-primary:disabled {
+    background: #1e40af;
+    cursor: not-allowed;
+    opacity: 0.8;
+}
 
 .btn-secondary {
     background: #475569;
@@ -192,11 +197,134 @@ const alertSave = document.getElementById('alert-save');
 const inputContrato = document.getElementById('input-contrato');
 const inputCidade = document.getElementById('input-cidade');
 
-// Lista para armazenar as imagens em memória (Base64)
 let listaImagens = [];
 let localizacaoAtual = null;
+let enderecoAtual = "Não disponível";
 
-// --- FUNÇÃO PARA ADICIONAR IMAGEM NA GRADE ---
+// --- BUSCAR ENDEREÇO VIA REVERSE GEOCIDING (OSM Nominatim) ---
+async function buscarEndereco(lat, lon) {
+    try {
+        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`, {
+            headers: {
+                'Accept-Language': 'pt-BR',
+                'User-Agent': 'AppEvidencias/1.0' // Identificação sugerida pelas regras de uso da API
+            }
+        });
+        if (response.ok) {
+            const data = await response.json();
+            
+            // Filtra e organiza um endereço mais resumido para caber melhor na foto
+            let partesEndereco = [];
+            if (data.address) {
+                const rua = data.address.road || data.address.pedestrian;
+                const numero = data.address.house_number;
+                const bairro = data.address.suburb || data.address.neighbourhood;
+                const cidade = data.address.city || data.address.town || data.address.village;
+                const estado = data.address.state;
+
+                if (rua) partesEndereco.push(numero ? `${rua}, ${numero}` : rua);
+                if (bairro) partesEndereco.push(bairro);
+                if (cidade) partesEndereco.push(cidade);
+                if (estado) partesEndereco.push(estado);
+            }
+            
+            return partesEndereco.length > 0 ? partesEndereco.join(' - ') : (data.display_name || "Endereço não identificado");
+        }
+    } catch (e) {
+        console.error("Erro na busca de endereço:", e);
+    }
+    return "Falha ao buscar endereço de rede";
+}
+
+// --- DESENHAR INFORMAÇÕES DIRETAMENTE NA FOTO (Canvas) ---
+function estamparMetadadosNaFoto(base64Src, callback) {
+    const img = new Image();
+    img.src = base64Src;
+    img.onload = function() {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Redimensiona imagens muito grandes para evitar travamento em dispositivos móveis
+        let larguraAlvo = img.width;
+        let alturaAlvo = img.height;
+        const limiteDimensoes = 1600;
+        
+        if (larguraAlvo > limiteDimensoes || alturaAlvo > limiteDimensoes) {
+            if (larguraAlvo > alturaAlvo) {
+                alturaAlvo = Math.round((alturaAlvo * limiteDimensoes) / larguraAlvo);
+                larguraAlvo = limiteDimensoes;
+            } else {
+                larguraAlvo = Math.round((larguraAlvo * limiteDimensoes) / alturaAlvo);
+                alturaAlvo = limiteDimensoes;
+            }
+        }
+        
+        canvas.width = larguraAlvo;
+        canvas.height = alturaAlvo;
+        
+        // Desenha a foto original redimensionada
+        ctx.drawImage(img, 0, 0, larguraAlvo, alturaAlvo);
+        
+        // Configura tamanho da fonte proporcional à altura da foto
+        const tamanhoFonte = Math.max(16, Math.round(alturaAlvo * 0.024)); 
+        ctx.font = `bold ${tamanhoFonte}px sans-serif`;
+        
+        // Textos dos metadados
+        const textoData = `DATA/HORA: ${new Date().toLocaleString('pt-BR')}`;
+        const textoGps = localizacaoAtual ? `GPS: Lat ${localizacaoAtual.latitude}, Lon ${localizacaoAtual.longitude}` : "GPS: Não disponível";
+        const textoEndereco = `ENDEREÇO: ${enderecoAtual}`;
+        
+        const preenchimento = tamanhoFonte * 0.8;
+        const larguraMaximaTexto = larguraAlvo - (preenchimento * 2);
+        const alturaLinha = tamanhoFonte + 6;
+        
+        // Algoritmo simples de quebra de linha para o endereço longo
+        const linhasEndereco = [];
+        const palavras = textoEndereco.split(' ');
+        let linhaAtual = '';
+        
+        for (let n = 0; n < palavras.length; n++) {
+            let linhaTeste = linhaAtual + palavras[n] + ' ';
+            let metricas = ctx.measureText(linhaTeste);
+            if (metricas.width > larguraMaximaTexto && n > 0) {
+                linhasEndereco.push(linhaAtual);
+                linhaAtual = palavras[n] + ' ';
+            } else {
+                linhaAtual = linhaTeste;
+            }
+        }
+        linhasEndereco.push(linhaAtual);
+        
+        // Junta todas as linhas que serão desenhadas
+        const todasLinhas = [textoData, textoGps, ...linhasEndereco];
+        
+        // Desenha a faixa escura semitransparente na parte inferior
+        const alturaFaixa = (todasLinhas.length * alturaLinha) + (preenchimento * 2);
+        ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+        ctx.fillRect(0, alturaAlvo - alturaFaixa, larguraAlvo, alturaFaixa);
+        
+        // Escreve os textos por cima da faixa escura
+        ctx.fillStyle = "#ffffff";
+        ctx.textBaseline = "top";
+        
+        let coordenadaY = alturaAlvo - alturaFaixa + preenchimento;
+        todasLinhas.forEach(linha => {
+            ctx.fillText(lineTextCleanup(linha), preenchimento, coordenadaY);
+            coordenadaY += alturaLinha;
+        });
+        
+        // Converte o canvas de volta para Base64 (com compressão amigável de 80%)
+        const base64Marcado = canvas.toDataURL('image/jpeg', 0.8);
+        callback(base64Marcado);
+    };
+}
+
+// Limpa possíveis espaços vazios residuais no texto
+function lineTextCleanup(str) {
+    return str.trim();
+}
+
+// --- ADICIONAR IMAGEM NA GRADE VISUAL ---
 function adicionarImagemNaGrade(base64Image) {
     listaImagens.push(base64Image);
     
@@ -208,28 +336,46 @@ function adicionarImagemNaGrade(base64Image) {
 
 // --- CONTROLE DA CÂMERA & GPS ---
 btnTirarFoto.addEventListener('click', () => {
+    btnTirarFoto.disabled = true;
+    btnTirarFoto.textContent = "Obtendo GPS e Endereço...";
     geoInfo.style.display = 'block';
-    geoInfo.textContent = "Obtendo localização GPS...";
+    geoInfo.textContent = "Aguardando sinal de GPS...";
 
     if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
-            (position) => {
+            async (position) => {
                 const lat = position.coords.latitude.toFixed(6);
                 const lon = position.coords.longitude.toFixed(6);
                 localizacaoAtual = { latitude: lat, longitude: lon };
                 
-                geoInfo.innerHTML = `📍 <strong>Localização capturada:</strong><br>Lat: ${lat} | Lon: ${lon}`;
+                geoInfo.innerHTML = `📍 Lat: ${lat} | Lon: ${lon}<br>⏳ Traduzindo endereço...`;
+                
+                // Busca o endereço em tempo real
+                enderecoAtual = await buscarEndereco(lat, lon);
+                geoInfo.innerHTML = `📍 Lat: ${lat} | Lon: ${lon}<br>🏠 ${enderecoAtual}`;
+                
+                btnTirarFoto.disabled = false;
+                btnTirarFoto.textContent = "Tirar Foto & Capturar GPS";
+                
+                // Dispara a câmera
                 cameraInput.click();
             },
             (error) => {
                 console.error(error);
-                geoInfo.innerHTML = "⚠️ GPS não disponível. Certifique-se de permitir o acesso à localização.";
+                geoInfo.innerHTML = "⚠️ GPS indisponível. Verifique as permissões de localização.";
+                enderecoAtual = "Localização não autorizada/indisponível";
+                
+                btnTirarFoto.disabled = false;
+                btnTirarFoto.textContent = "Tirar Foto & Capturar GPS";
                 cameraInput.click();
             },
             { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
         );
     } else {
         geoInfo.textContent = "⚠️ Geolocalização não suportada.";
+        enderecoAtual = "Navegador sem suporte a GPS";
+        btnTirarFoto.disabled = false;
+        btnTirarFoto.textContent = "Tirar Foto & Capturar GPS";
         cameraInput.click();
     }
 });
@@ -239,13 +385,16 @@ cameraInput.addEventListener('change', (event) => {
     if (file) {
         const reader = new FileReader();
         reader.onload = function(e) {
-            adicionarImagemNaGrade(e.target.result);
+            // Estampa as informações antes de adicionar na tela
+            estamparMetadadosNaFoto(e.target.result, (base64Marcado) => {
+                adicionarImagemNaGrade(base64Marcado);
+            });
         }
         reader.readAsDataURL(file);
     }
 });
 
-// --- CONTROLE DA GALERIA (Múltiplas Fotos) ---
+// --- CONTROLE DA GALERIA ---
 btnGaleria.addEventListener('click', () => {
     galleryInput.click();
 });
@@ -257,7 +406,10 @@ galleryInput.addEventListener('change', (event) => {
             const file = files[i];
             const reader = new FileReader();
             reader.onload = function(e) {
-                adicionarImagemNaGrade(e.target.result);
+                // Fotos enviadas da galeria também recebem a marcação se o GPS estiver ativo
+                estamparMetadadosNaFoto(e.target.result, (base64Marcado) => {
+                    adicionarImagemNaGrade(base64Marcado);
+                });
             }
             reader.readAsDataURL(file);
         }
@@ -266,57 +418,52 @@ galleryInput.addEventListener('change', (event) => {
 
 // --- SIMULAÇÃO DE SALVAMENTO ---
 btnSalvar.addEventListener('click', () => {
-    // Validação simples
     const contrato = inputContrato.value.trim();
     const cidade = inputCidade.value.trim();
 
     if (!contrato || !cidade) {
-        alert("Por favor, preencha os campos de Contrato e Cidade antes de salvar.");
+        alert("Preencha os campos de Contrato e Cidade.");
         return;
     }
 
     if (listaImagens.length === 0) {
-        alert("Por favor, adicione pelo menos uma evidência (Foto ou Galeria) antes de salvar.");
+        alert("Adicione pelo menos uma evidência.");
         return;
     }
 
-    // Inicia simulação de salvamento
     btnSalvar.disabled = true;
-    btnSalvar.textContent = "Enviando dados ao servidor...";
+    btnSalvar.textContent = "Enviando evidências...";
     alertSave.style.display = 'none';
 
-    // Objeto consolidado que seria enviado para o Backend futuramente
     const payloadEvidencia = {
         contrato: contrato,
         cidade: cidade,
         localizacao: localizacaoAtual,
-        imagens: listaImagens // Array com todas as fotos em Base64
+        endereco: enderecoAtual,
+        imagens: listaImagens // Envia as imagens já com a marca d'água embutida
     };
 
-    console.log("Dados que seriam enviados ao Backend:", payloadEvidencia);
+    console.log("Payload para o Backend:", payloadEvidencia);
 
-    // Simula uma resposta de rede (1.5 segundos)
     setTimeout(() => {
-        // Exibe mensagem de sucesso
         alertSave.style.display = 'block';
         alertSave.innerHTML = `✅ Evidência Salva com Sucesso! (Simulado)<br>
                                <span style="font-size:12px; font-weight:normal;">
-                               Contrato: ${contrato} | Imagens enviadas: ${listaImagens.length}
+                               Contrato: ${contrato} | Fotos com marca d'água: ${listaImagens.length}
                                </span>`;
 
-        // Reseta o formulário
+        // Reseta o estado geral
         inputContrato.value = "";
         inputCidade.value = "";
         listaImagens = [];
         localizacaoAtual = null;
+        enderecoAtual = "Não disponível";
         previewGrid.innerHTML = "";
         geoInfo.style.display = 'none';
 
-        // Reabilita o botão
         btnSalvar.disabled = false;
         btnSalvar.textContent = "Salvar Evidência";
 
-        // Remove o alerta de sucesso após 5 segundos
         setTimeout(() => {
             alertSave.style.display = 'none';
         }, 5000);
