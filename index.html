@@ -79,6 +79,19 @@ button{
     background: #334155;
 }
 
+.btn-warning {
+    background: #f59e0b;
+    margin-top: 10px;
+}
+.btn-warning:active {
+    background: #d97706;
+}
+.btn-warning:disabled {
+    background: #78350f;
+    cursor: not-allowed;
+    opacity: 0.8;
+}
+
 .btn-success {
     background: #22c55e;
     margin-top: 30px;
@@ -87,9 +100,10 @@ button{
     background: #16a34a;
 }
 .btn-success:disabled {
-    background: #15803d;
+    background: #1e3a1e;
+    color: #4b5563;
     cursor: not-allowed;
-    opacity: 0.7;
+    opacity: 0.6;
 }
 
 /* Área de visualização e grid das fotos */
@@ -149,6 +163,13 @@ button{
 <div class="card">
 <h2>Nova Evidência</h2>
 
+<!-- Novos campos persistentes -->
+<label>Login do Técnico</label>
+<input id="input-tecnico" placeholder="Digite seu login de técnico">
+
+<label>Nome da Empresa</label>
+<input id="input-empresa" placeholder="Digite o nome da empresa">
+
 <label>Contrato</label>
 <input id="input-contrato" placeholder="Digite o contrato">
 
@@ -166,11 +187,13 @@ button{
 <!-- Área de visualização do resultado -->
 <div class="preview-container">
     <div id="geo-info" class="geo-badge"></div>
+    <!-- Botão de atualização de GPS que aparece condicionalmente -->
+    <button id="btn-atualizar-gps" class="btn-warning" style="display:none;">⚠️ Atualizar Geolocalização</button>
     <div id="preview-grid" class="preview-grid"></div>
 </div>
 
-<!-- Botão Salvar e Alerta -->
-<button id="btn-salvar" class="btn-success">Salvar Evidência</button>
+<!-- Botão Salvar (Inicia desabilitado) -->
+<button id="btn-salvar" class="btn-success" disabled>Salvar Evidência</button>
 <div id="alert-save" class="alert-success"></div>
 
 </div>
@@ -181,6 +204,7 @@ button{
 const btnTirarFoto = document.getElementById('btn-tirar-foto');
 const btnGaleria = document.getElementById('btn-galeria');
 const btnSalvar = document.getElementById('btn-salvar');
+const btnAtualizarGps = document.getElementById('btn-atualizar-gps');
 
 const cameraInput = document.getElementById('camera-input');
 const galleryInput = document.getElementById('gallery-input');
@@ -189,6 +213,8 @@ const previewGrid = document.getElementById('preview-grid');
 const geoInfo = document.getElementById('geo-info');
 const alertSave = document.getElementById('alert-save');
 
+const inputTecnico = document.getElementById('input-tecnico');
+const inputEmpresa = document.getElementById('input-empresa');
 const inputContrato = document.getElementById('input-contrato');
 const inputCidade = document.getElementById('input-cidade');
 
@@ -198,6 +224,48 @@ let enderecoAtual = "Não disponível";
 
 // Promise para coordenar a busca paralela em segundo plano
 let buscaMetadadosPromise = null;
+
+// --- CARREGAR CACHE DO NAVEGADOR (LocalStorage) ---
+inputTecnico.value = localStorage.getItem('login_tecnico') || '';
+inputEmpresa.value = localStorage.getItem('nome_empresa') || '';
+
+// --- SALVAR EM CACHE AO DIGITAR E VALIDAR FORMULÁRIO ---
+inputTecnico.addEventListener('input', () => {
+    localStorage.setItem('login_tecnico', inputTecnico.value.trim());
+    validarEstadoFormulario();
+});
+
+inputEmpresa.addEventListener('input', () => {
+    localStorage.setItem('nome_empresa', inputEmpresa.value.trim());
+    validarEstadoFormulario();
+});
+
+inputContrato.addEventListener('input', validarEstadoFormulario);
+inputCidade.addEventListener('input', validarEstadoFormulario);
+
+// --- FUNÇÃO PARA CONTROLAR A ATIVAÇÃO DO BOTÃO SALVAR ---
+function validarEstadoFormulario() {
+    const contrato = inputContrato.value.trim();
+    const cidade = inputCidade.value.trim();
+    const tecnico = inputTecnico.value.trim();
+    const empresa = inputEmpresa.value.trim();
+    const temImagens = listaImagens.length > 0;
+    const temGps = localizacaoAtual !== null;
+
+    // Se tiver fotos, mas não tiver capturado o GPS ainda, mostra o botão de atualização do GPS
+    if (temImagens && !temGps) {
+        btnAtualizarGps.style.display = 'block';
+    } else {
+        btnAtualizarGps.style.display = 'none';
+    }
+
+    // Só habilita o botão de salvar se TODOS os campos estiverem preenchidos, possuir fotos e possuir GPS válido
+    if (contrato && cidade && tecnico && empresa && temImagens && temGps) {
+        btnSalvar.disabled = false;
+    } else {
+        btnSalvar.disabled = true;
+    }
+}
 
 // --- BUSCAR ENDEREÇO VIA REVERSE GEOCIDING (OSM Nominatim) ---
 async function buscarEndereco(lat, lon) {
@@ -247,7 +315,6 @@ function iniciarCapturaMetadados() {
                 const lon = position.coords.longitude.toFixed(6);
                 const gps = { latitude: lat, longitude: lon };
                 
-                // Busca o endereço de forma assíncrona
                 const endereco = await buscarEndereco(lat, lon);
                 resolve({ gps, endereco });
             },
@@ -259,6 +326,56 @@ function iniciarCapturaMetadados() {
         );
     });
 }
+
+// --- DISPARAR BUSCA DO GPS MANUALMENTE (PELO BOTÃO DE ALERTA) ---
+btnAtualizarGps.addEventListener('click', () => {
+    btnAtualizarGps.disabled = true;
+    btnAtualizarGps.textContent = "Buscando sinal de satélite...";
+    geoInfo.style.display = 'block';
+    geoInfo.textContent = "Obtendo localização atual...";
+
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+            async (position) => {
+                const lat = position.coords.latitude.toFixed(6);
+                const lon = position.coords.longitude.toFixed(6);
+                localizacaoAtual = { latitude: lat, longitude: lon };
+                
+                geoInfo.innerHTML = `📍 Lat: ${lat} | Lon: ${lon}<br>⏳ Traduzindo endereço...`;
+                enderecoAtual = await buscarEndereco(lat, lon);
+                geoInfo.innerHTML = `📍 Lat: ${lat} | Lon: ${lon}<br>🏠 ${enderecoAtual}`;
+                
+                btnAtualizarGps.disabled = false;
+                btnAtualizarGps.textContent = "⚠️ Atualizar Geolocalização";
+                
+                // Reprocessa a lista de fotos para garantir que elas sejam estampadas com o novo GPS válido
+                const fotosOriginais = [...listaImagens];
+                listaImagens = [];
+                previewGrid.innerHTML = "";
+                
+                for (let foto of fotosOriginais) {
+                    estamparMetadadosNaFoto(foto, (base64Marcado) => {
+                        adicionarImagemNaGrade(base64Marcado);
+                    });
+                }
+                
+                validarEstadoFormulario();
+            },
+            (error) => {
+                console.error(error);
+                geoInfo.innerHTML = "⚠️ Não foi possível obter o GPS. Certifique-se de autorizar a localização do navegador.";
+                btnAtualizarGps.disabled = false;
+                btnAtualizarGps.textContent = "⚠️ Atualizar Geolocalização";
+                validarEstadoFormulario();
+            },
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        );
+    } else {
+        alert("Navegador sem suporte a GPS.");
+        btnAtualizarGps.disabled = false;
+        btnAtualizarGps.textContent = "⚠️ Atualizar Geolocalização";
+    }
+});
 
 // --- DESENHAR INFORMAÇÕES DIRETAMENTE NA FOTO (Canvas) ---
 function estamparMetadadosNaFoto(base64Src, callback) {
@@ -272,7 +389,6 @@ function estamparMetadadosNaFoto(base64Src, callback) {
         let alturaAlvo = img.height;
         const limiteDimensoes = 1600;
         
-        // Redimensiona imagens gigantescas para preservar memória do dispositivo móvel
         if (larguraAlvo > limiteDimensoes || alturaAlvo > limiteDimensoes) {
             if (larguraAlvo > alturaAlvo) {
                 alturaAlvo = Math.round((alturaAlvo * limiteDimensoes) / larguraAlvo);
@@ -287,7 +403,6 @@ function estamparMetadadosNaFoto(base64Src, callback) {
         canvas.height = alturaAlvo;
         ctx.drawImage(img, 0, 0, larguraAlvo, alturaAlvo);
         
-        // Tamanho de fonte proporcional à altura final da imagem
         const tamanhoFonte = Math.max(16, Math.round(alturaAlvo * 0.024)); 
         ctx.font = `bold ${tamanhoFonte}px sans-serif`;
         
@@ -299,7 +414,6 @@ function estamparMetadadosNaFoto(base64Src, callback) {
         const larguraMaximaTexto = larguraAlvo - (preenchimento * 2);
         const alturaLinha = tamanhoFonte + 6;
         
-        // Algoritmo de quebra de linha automático para o endereço no canvas
         const linhasEndereco = [];
         const palavras = textoEndereco.split(' ');
         let linhaAtual = '';
@@ -318,7 +432,6 @@ function estamparMetadadosNaFoto(base64Src, callback) {
         
         const todasLinhas = [textoData, textoGps, ...linhasEndereco];
         
-        // Cria a faixa de fundo escura semitransparente na parte inferior da foto
         const alturaFaixa = (todasLinhas.length * alturaLinha) + (preenchimento * 2);
         ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
         ctx.fillRect(0, alturaAlvo - alturaFaixa, larguraAlvo, alturaFaixa);
@@ -332,7 +445,6 @@ function estamparMetadadosNaFoto(base64Src, callback) {
             coordenadaY += alturaLinha;
         });
         
-        // Gera o Base64 com compactação leve para o banco de dados
         const base64Marcado = canvas.toDataURL('image/jpeg', 0.8);
         callback(base64Marcado);
     };
@@ -345,14 +457,13 @@ function adicionarImagemNaGrade(base64Image) {
     img.src = base64Image;
     img.className = 'thumb-preview';
     previewGrid.appendChild(img);
+    
+    validarEstadoFormulario();
 }
 
 // --- CONTROLE DA CÂMERA ---
 btnTirarFoto.addEventListener('click', () => {
-    // 1. Dispara a busca em paralelo de GPS e endereço
     iniciarCapturaMetadados();
-    
-    // 2. Aciona o fluxo da câmera instantaneamente
     cameraInput.click();
 });
 
@@ -366,7 +477,6 @@ cameraInput.addEventListener('change', (event) => {
         reader.onload = async function(e) {
             const base64Original = e.target.result;
 
-            // 3. Aguarda os dados do GPS terminarem a busca iniciada no clique do botão
             const metadados = await buscaMetadadosPromise;
             
             localizacaoAtual = metadados.gps;
@@ -378,7 +488,6 @@ cameraInput.addEventListener('change', (event) => {
                 geoInfo.innerHTML = `⚠️ GPS indisponível.<br>🏠 ${enderecoAtual}`;
             }
 
-            // Estampa as informações na foto e insere na grade de visualização
             estamparMetadadosNaFoto(base64Original, (base64Marcado) => {
                 adicionarImagemNaGrade(base64Marcado);
             });
@@ -426,14 +535,16 @@ galleryInput.addEventListener('change', async (event) => {
 btnSalvar.addEventListener('click', async () => {
     const contrato = inputContrato.value.trim();
     const cidade = inputCidade.value.trim();
+    const tecnico = inputTecnico.value.trim();
+    const empresa = inputEmpresa.value.trim();
 
-    if (!contrato || !cidade) {
-        alert("Preencha os campos de Contrato e Cidade antes de salvar.");
+    if (!contrato || !cidade || !tecnico || !empresa) {
+        alert("Preencha todos os campos do formulário.");
         return;
     }
 
-    if (listaImagens.length === 0) {
-        alert("Adicione pelo menos uma evidência (Foto ou Galeria) antes de salvar.");
+    if (listaImagens.length === 0 || !localizacaoAtual) {
+        alert("Certifique-se de que possui ao menos uma imagem e a geolocalização capturada.");
         return;
     }
 
@@ -441,17 +552,18 @@ btnSalvar.addEventListener('click', async () => {
     btnSalvar.textContent = "Salvando dados no Azure...";
     alertSave.style.display = 'none';
 
-    // Montagem do payload que será lido pela Azure Function
+    // Montagem do payload contendo os novos campos de Técnico e Empresa
     const payloadEvidencia = {
         contrato: contrato,
         cidade: cidade,
+        tecnico: tecnico,
+        empresa: empresa,
         localizacao: localizacaoAtual,
         endereco: enderecoAtual,
-        imagens: listaImagens // Envia as imagens com os dados físicos já embutidos (marcador)
+        imagens: listaImagens
     };
 
     try {
-        // Envia requisição POST real para o backend interno do Azure Static Web Apps
         const response = await fetch('/api/salvarEvidencia', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -467,7 +579,7 @@ btnSalvar.addEventListener('click', async () => {
                                    Contrato: ${contrato} | Fotos Armazenadas: ${listaImagens.length}
                                    </span>`;
 
-            // Reseta a tela para o próximo preenchimento
+            // Reseta apenas os campos dinâmicos (NÃO apaga o Técnico e Empresa do cache)
             inputContrato.value = "";
             inputCidade.value = "";
             listaImagens = [];
@@ -475,17 +587,18 @@ btnSalvar.addEventListener('click', async () => {
             enderecoAtual = "Não disponível";
             previewGrid.innerHTML = "";
             geoInfo.style.display = 'none';
+            validarEstadoFormulario();
         } else {
             alert("Erro reportado pelo servidor: " + (resultado.error || "Ocorreu um erro desconhecido."));
+            validarEstadoFormulario();
         }
 
     } catch (e) {
         console.error("Erro de conexão de rede:", e);
-        alert("Erro ao conectar ao servidor do Azure. Verifique se o backend foi compilado com sucesso.");
+        alert("Erro ao conectar ao servidor do Azure.");
+        validarEstadoFormulario();
     } finally {
-        btnSalvar.disabled = false;
         btnSalvar.textContent = "Salvar Evidência";
-        
         setTimeout(() => {
             alertSave.style.display = 'none';
         }, 8000);
