@@ -2,15 +2,14 @@ const { app } = require('@azure/functions');
 const { TableClient } = require('@azure/data-tables');
 
 const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING;
-const painelToken = process.env.PAINEL_ACCESS_TOKEN; // Nova variável que guardará sua senha no Azure
 
 app.http('obterEvidencias', {
     methods: ['GET'],
     authLevel: 'anonymous',
     handler: async (request, context) => {
         try {
-            // 1. Validação de Segurança do Token enviado pelo cabeçalho (Header)
             const tokenEnviado = request.headers.get('x-access-token');
+            const painelToken = process.env.PAINEL_ACCESS_TOKEN;
 
             if (!painelToken) {
                 return { 
@@ -26,7 +25,6 @@ app.http('obterEvidencias', {
                 };
             }
 
-            // 2. Conexão padrão ao Banco após validação positiva
             if (!connectionString) {
                 return { 
                     status: 500, 
@@ -46,6 +44,8 @@ app.http('obterEvidencias', {
                     cidade: entity.cidade,
                     tecnico: entity.tecnico,
                     empresa: entity.empresa,
+                    servico: entity.servico || 'N/A', // Captura o novo campo
+                    janela: entity.janela || 'N/A',   // Captura o novo campo
                     latitude: entity.latitude,
                     longitude: entity.longitude,
                     endereco: entity.endereco,
