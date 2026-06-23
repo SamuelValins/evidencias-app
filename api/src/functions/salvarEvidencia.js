@@ -9,6 +9,14 @@ app.http('salvarEvidencia', {
     authLevel: 'anonymous',
     handler: async (request, context) => {
         try {
+            // 1. Verificação preventiva da variável de ambiente
+            if (!connectionString) {
+                return { 
+                    status: 500, 
+                    jsonBody: { error: 'Erro: A variável AZURE_STORAGE_CONNECTION_STRING não foi encontrada no ambiente do Azure.' } 
+                };
+            }
+
             const body = await request.json();
             const { contrato, cidade, localizacao, endereco, imagens } = body;
 
@@ -16,9 +24,12 @@ app.http('salvarEvidencia', {
                 return { status: 400, jsonBody: { error: 'Dados incompletos fornecidos.' } };
             }
 
+            // --- 2. SALVAR FOTOS NO BLOB STORAGE ---
             const blobServiceClient = BlobServiceClient.fromConnectionString(connectionString);
             const containerClient = blobServiceClient.getContainerClient('fotos-evidencias');
-            await containerClient.createIfNotExists({ publicAccess: 'blob' });
+            
+            // Ajuste do parâmetro para a versão mais recente do SDK do Azure ('access' em vez de 'publicAccess')
+            await containerClient.createIfNotExists({ access: 'blob' });
 
             const urlsImagens = [];
 
@@ -40,6 +51,7 @@ app.http('salvarEvidencia', {
                 urlsImagens.push(blockBlobClient.url);
             }
 
+            // --- 3. SALVAR METADADOS NO TABLE STORAGE ---
             const tableClient = TableClient.fromConnectionString(connectionString, 'EvidenciasTable');
             await tableClient.createTableIfNotExists();
 
@@ -70,7 +82,11 @@ app.http('salvarEvidencia', {
 
         } catch (error) {
             context.error('Erro ao processar salvamento:', error);
-            return { status: 500, jsonBody: { error: 'Erro interno do servidor.' } };
+            // RETORNA O ERRO REAL: Agora a tela nos mostrará exatamente qual linha ou comando falhou
+            return { 
+                status: 500, 
+                jsonBody: { error: `Erro no servidor: ${error.message || error.toString()}` } 
+            };
         }
     }
 });
