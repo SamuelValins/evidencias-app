@@ -2,26 +2,44 @@ const { app } = require('@azure/functions');
 const { TableClient } = require('@azure/data-tables');
 
 const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING;
+const painelToken = process.env.PAINEL_ACCESS_TOKEN; // Nova variável que guardará sua senha no Azure
 
 app.http('obterEvidencias', {
     methods: ['GET'],
     authLevel: 'anonymous',
     handler: async (request, context) => {
         try {
+            // 1. Validação de Segurança do Token enviado pelo cabeçalho (Header)
+            const tokenEnviado = request.headers.get('x-access-token');
+
+            if (!painelToken) {
+                return { 
+                    status: 500, 
+                    jsonBody: { error: 'A variável PAINEL_ACCESS_TOKEN não foi configurada nas configurações do Azure.' } 
+                };
+            }
+
+            if (tokenEnviado !== painelToken) {
+                return { 
+                    status: 401, 
+                    jsonBody: { error: 'Token inválido. Acesso ao painel gerencial recusado.' } 
+                };
+            }
+
+            // 2. Conexão padrão ao Banco após validação positiva
             if (!connectionString) {
                 return { 
                     status: 500, 
-                    jsonBody: { error: 'A variável AZURE_STORAGE_CONNECTION_STRING não foi configurada no portal do Azure.' } 
+                    jsonBody: { error: 'A variável AZURE_STORAGE_CONNECTION_STRING não foi configurada.' } 
                 };
             }
 
             const tableClient = TableClient.fromConnectionString(connectionString, 'EvidenciasTable');
-            await tableClient.createTable(); // Garante que a tabela exista antes da leitura
+            await tableClient.createTable(); 
 
             const evidencias = [];
             const listResults = tableClient.listEntities();
 
-            // Percorre todos os registros do Azure Table Storage
             for await (const entity of listResults) {
                 evidencias.push({
                     contrato: entity.contrato,
@@ -36,7 +54,6 @@ app.http('obterEvidencias', {
                 });
             }
 
-            // Ordena as evidências inicialmente por data decrescente (da mais recente para a mais antiga)
             evidencias.sort((a, b) => new Date(b.dataHora) - new Date(a.dataHora));
 
             return { status: 200, jsonBody: evidencias };
