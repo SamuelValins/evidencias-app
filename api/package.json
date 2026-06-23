@@ -1,6 +1,7 @@
 {
   "name": "api-evidencias",
   "version": "1.0.0",
+  "main": "src/functions/*.js",
   "dependencies": {
     "@azure/functions": "^4.0.0",
     "@azure/storage-blob": "^12.17.0",
