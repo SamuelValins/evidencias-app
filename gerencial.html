@@ -280,13 +280,11 @@ const metricEmpresas = document.getElementById('metric-empresas');
 const metricLogins = document.getElementById('metric-logins');
 const metricTotal = document.getElementById('metric-total');
 
-// Elementos de Login
 const authModal = document.getElementById('auth-modal');
 const inputTokenAcesso = document.getElementById('input-token-acesso');
 const btnAutenticar = document.getElementById('btn-autenticar');
 const authError = document.getElementById('auth-error');
 
-// --- VERIFICAR SE O TOKEN JÁ ESTÁ EM CACHE DESTA ABA ---
 const tokenSalvo = sessionStorage.getItem('painel_token');
 if (tokenSalvo) {
     authModal.style.display = 'none';
@@ -306,17 +304,15 @@ btnAutenticar.addEventListener('click', () => {
     carregarDados(token);
 });
 
-// Permite pressionar "Enter" no teclado para logar
 inputTokenAcesso.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') btnAutenticar.click();
 });
 
-// --- CARREGAR DADOS DO AZURE (ENVIANDO O TOKEN NO CABEÇALHO) ---
 async function carregarDados(token) {
     try {
         const response = await fetch('/api/obterEvidencias', {
             headers: {
-                'x-access-token': token // Envia a credencial na requisição HTTP
+                'x-access-token': token
             }
         });
 
@@ -331,7 +327,6 @@ async function carregarDados(token) {
         
         todasEvidencias = await response.json();
         
-        // Se deu sucesso, salva o token na sessão ativa do navegador e esconde o login
         sessionStorage.setItem('painel_token', token);
         authModal.style.display = 'none';
         
@@ -341,7 +336,6 @@ async function carregarDados(token) {
     } catch (e) {
         console.error(e);
         
-        // Exibe o erro na própria caixa de login e reseta o botão
         authError.textContent = e.message;
         authError.style.display = 'block';
         authModal.style.display = 'flex';
@@ -355,7 +349,6 @@ async function carregarDados(token) {
 }
 
 function popularOpcoesFiltro() {
-    // Limpa filtros anteriores para evitar duplicidade
     filtroEmpresa.innerHTML = '<option value="">Todas as Empresas</option>';
     filtroTecnico.innerHTML = '<option value="">Todos os Técnicos</option>';
 
@@ -455,11 +448,13 @@ function renderizarResultados(contratosAgrupados) {
 
             const dataFormatada = new Date(item.dataHora).toLocaleString('pt-BR');
 
+            // Exibição atualizada incluindo os novos campos: Serviço e Janela
             let htmlEvidencia = `
                 <div class="evidencia-meta">
                     <span>📅 Realizado em: <strong>${dataFormatada}</strong></span>
                     <span>Técnico: <span class="evidencia-tag">${item.tecnico || 'N/A'}</span></span>
                     <span>Empresa: <span class="evidencia-tag">${item.empresa || 'N/A'}</span></span>
+                    <span>Serviço: <span class="evidencia-tag" style="color: #f59e0b;">${item.servico || 'N/A'} (${item.janela || 'N/A'})</span></span>
                 </div>
                 <div class="evidencia-location">
                     📍 <strong>GPS:</strong> Lat ${item.latitude || 'N/A'}, Lon ${item.longitude || 'N/A'}<br>
