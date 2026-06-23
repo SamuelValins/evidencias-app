@@ -9,7 +9,7 @@ app.http('salvarEvidencia', {
     authLevel: 'anonymous',
     handler: async (request, context) => {
         try {
-            // 1. Verificação preventiva da variável de ambiente
+            // 1. Verificação preventiva da conexão do Azure
             if (!connectionString) {
                 return { 
                     status: 500, 
@@ -18,17 +18,16 @@ app.http('salvarEvidencia', {
             }
 
             const body = await request.json();
-            const { contrato, cidade, localizacao, endereco, imagens } = body;
+            // Lendo os novos parâmetros enviados pelo frontend (tecnico e empresa)
+            const { contrato, cidade, tecnico, empresa, localizacao, endereco, imagens } = body;
 
-            if (!contrato || !cidade || !imagens || imagens.length === 0) {
-                return { status: 400, jsonBody: { error: 'Dados incompletos fornecidos.' } };
+            if (!contrato || !cidade || !tecnico || !empresa || !imagens || imagens.length === 0) {
+                return { status: 400, jsonBody: { error: 'Dados incompletos fornecidos no formulário.' } };
             }
 
             // --- 2. SALVAR FOTOS NO BLOB STORAGE ---
             const blobServiceClient = BlobServiceClient.fromConnectionString(connectionString);
             const containerClient = blobServiceClient.getContainerClient('fotos-evidencias');
-            
-            // Ajuste do parâmetro para a versão mais recente do SDK do Azure ('access' em vez de 'publicAccess')
             await containerClient.createIfNotExists({ access: 'blob' });
 
             const urlsImagens = [];
@@ -58,11 +57,14 @@ app.http('salvarEvidencia', {
             const partitionKey = cidade.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
             const rowKey = `${contrato}-${Date.now()}`;
 
+            // O registro agora armazena de forma estruturada o login do Técnico e Empresa
             const registroEvidencia = {
                 partitionKey: partitionKey,
                 rowKey: rowKey,
                 contrato: contrato,
                 cidade: cidade,
+                tecnico: tecnico,  // Novo campo na tabela
+                empresa: empresa,  // Novo campo na tabela
                 latitude: localizacao ? parseFloat(localizacao.latitude) : 0,
                 longitude: localizacao ? parseFloat(localizacao.longitude) : 0,
                 endereco: endereco || 'Não disponível',
@@ -82,7 +84,6 @@ app.http('salvarEvidencia', {
 
         } catch (error) {
             context.error('Erro ao processar salvamento:', error);
-            // RETORNA O ERRO REAL: Agora a tela nos mostrará exatamente qual linha ou comando falhou
             return { 
                 status: 500, 
                 jsonBody: { error: `Erro no servidor: ${error.message || error.toString()}` } 
