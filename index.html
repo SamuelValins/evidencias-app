@@ -205,18 +205,20 @@ button{
 <label>Contrato</label>
 <input id="input-contrato" placeholder="DIGITE O CONTRATO">
 
-<!-- Tipo de Serviço -->
-<label>Tipo de Serviço</label>
-<select id="select-servico">
-    <option value="">SELECIONE O TIPO DE SERVIÇO</option>
-    <option value="RETIRADA">RETIRADA</option>
-    <option value="BOX">BOX</option>
-</select>
+<!-- Código de Baixa -->
+<label>Código de Baixa</label>
+<input id="input-codigo-baixa" inputmode="numeric" pattern="[0-9]*" placeholder="DIGITE APENAS NÚMEROS DO CÓDIGO">
 
-<!-- Janela de Serviço (Dinamico) -->
+<!-- Janela de Serviço (Fixa com todos os horários) -->
 <label>Janela</label>
-<select id="select-janela" disabled>
-    <option value="">SELECIONE A JANELA (ESCOLHA O SERVIÇO ANTES)</option>
+<select id="select-janela">
+    <option value="">SELECIONE A JANELA DE ATENDIMENTO</option>
+    <option value="08HRS-11HRS">08HRS-11HRS</option>
+    <option value="11HRS-14HRS">11HRS-14HRS</option>
+    <option value="14HRS-17HRS">14HRS-17HRS</option>
+    <option value="08HRS-12HRS">08HRS-12HRS</option>
+    <option value="12HRS-18HRS">12HRS-18HRS</option>
+    <option value="08HRS-22HRS">08HRS-22HRS</option>
 </select>
 
 <!-- Inputs ocultos para Câmera e Galeria -->
@@ -224,18 +226,18 @@ button{
 <input type="file" id="gallery-input" accept="image/*" multiple style="display:none;">
 
 <!-- Botões de Ação -->
-<button id="btn-tirar-foto" class="btn-primary">Foto Da Residência</button>
-<button id="btn-galeria" class="btn-secondary">Print Ligação Para o Cliente (Galeria)</button>
+<button id="btn-tirar-foto" class="btn-primary">FOTO DA RESIDÊNCIA</button>
+<button id="btn-galeria" class="btn-secondary">PRINT LIGAÇÃO PARA O CLIENTE</button>
 
 <!-- Área de visualização do resultado -->
 <div class="preview-container">
     <div id="geo-info" class="geo-badge"></div>
-    <button id="btn-atualizar-gps" class="btn-warning" style="display:none;">⚠️ Atualizar Geolocalização</button>
+    <button id="btn-atualizar-gps" class="btn-warning" style="display:none;">⚠️ ATUALIZAR GEOLOCALIZAÇÃO</button>
     <div id="preview-grid" class="preview-grid"></div>
 </div>
 
 <!-- Botão Salvar (Inicia desabilitado) -->
-<button id="btn-salvar" class="btn-success" disabled>Salvar Evidência</button>
+<button id="btn-salvar" class="btn-success" disabled>SALVAR EVIDÊNCIA</button>
 <div id="alert-save" class="alert-success"></div>
 
 </div>
@@ -404,8 +406,8 @@ const inputTecnico = document.getElementById('input-tecnico');
 const inputEmpresa = document.getElementById('input-empresa');
 const inputCidade = document.getElementById('input-cidade');
 const inputContrato = document.getElementById('input-contrato');
+const inputCodigoBaixa = document.getElementById('input-codigo-baixa');
 
-const selectServico = document.getElementById('select-servico');
 const selectJanela = document.getElementById('select-janela');
 
 const listaEmpresasDatalist = document.getElementById('lista-empresas');
@@ -453,45 +455,10 @@ function atualizarCidadesDaEmpresa(empresaNome) {
     }
 }
 
-// --- DINAMISMO DO CAMPO JANELA BASEADO NO TIPO DE SERVIÇO ---
-function atualizarOpcoesJanela(servico) {
-    selectJanela.innerHTML = '';
-    
-    if (!servico) {
-        const optDefault = document.createElement('option');
-        optDefault.value = "";
-        optDefault.textContent = "SELECIONE A JANELA (ESCOLHA O SERVIÇO ANTES)";
-        selectJanela.appendChild(optDefault);
-        selectJanela.disabled = true;
-        return;
-    }
-
-    const optPlaceholder = document.createElement('option');
-    optPlaceholder.value = "";
-    optPlaceholder.textContent = "SELECIONE A JANELA DE ATENDIMENTO";
-    selectJanela.appendChild(optPlaceholder);
-
-    let janelas = [];
-    if (servico === "RETIRADA") {
-        janelas = ["08HRS-11HRS", "11HRS-14HRS", "14HRS-17HRS", "08HRS-22HRS"];
-    } else if (servico === "BOX") {
-        janelas = ["08HRS-12HRS", "12HRS-18HRS"];
-    }
-
-    janelas.forEach(janela => {
-        const opt = document.createElement('option');
-        opt.value = janela;
-        opt.textContent = janela;
-        selectJanela.appendChild(opt);
-    });
-
-    selectJanela.disabled = false;
-}
-
 // --- CARREGAR CACHE DO NAVEGADOR (LocalStorage) ---
 const tecnicoCache = localStorage.getItem('login_tecnico') || '';
 const empresaCache = localStorage.getItem('nome_empresa') || '';
-const cidadeCache = localStorage.getItem('nome_cidade') || '';
+const cityCache = localStorage.getItem('nome_cidade') || '';
 
 inputTecnico.value = tecnicoCache.toUpperCase();
 inputEmpresa.value = empresaCache.toUpperCase();
@@ -505,8 +472,8 @@ if (empresasUnicas.includes(inputEmpresa.value)) {
         .filter(item => item.e === inputEmpresa.value)
         .map(item => item.c);
 
-    if (cidadesValidas.includes(cidadeCache.toUpperCase())) {
-        inputCidade.value = cidadeCache.toUpperCase();
+    if (cidadesValidas.includes(cityCache.toUpperCase())) {
+        inputCidade.value = cityCache.toUpperCase();
     } else {
         inputCidade.value = '';
         localStorage.removeItem('nome_cidade');
@@ -560,9 +527,10 @@ inputContrato.addEventListener('input', (e) => {
     validarEstadoFormulario();
 });
 
-selectServico.addEventListener('change', (e) => {
-    const servico = e.target.value;
-    atualizarOpcoesJanela(servico);
+inputCodigoBaixa.addEventListener('input', (e) => {
+    // Garante que apenas números sejam digitados ou colados
+    const val = e.target.value.replace(/\D/g, '');
+    e.target.value = val;
     validarEstadoFormulario();
 });
 
@@ -573,10 +541,10 @@ selectJanela.addEventListener('change', () => {
 // --- FUNÇÃO PARA CONTROLAR A ATIVAÇÃO DO BOTÃO SALVAR ---
 function validarEstadoFormulario() {
     const contrato = inputContrato.value.trim();
+    const codigoBaixa = inputCodigoBaixa.value.trim();
     const cidade = inputCidade.value.trim();
     const tecnico = inputTecnico.value.trim();
     const empresa = inputEmpresa.value.trim();
-    const servico = selectServico.value;
     const janela = selectJanela.value;
     const temImagens = listaImagens.length > 0;
     const temGps = localizacaoAtual !== null;
@@ -587,7 +555,7 @@ function validarEstadoFormulario() {
         btnAtualizarGps.style.display = 'none';
     }
 
-    if (contrato && cidade && tecnico && empresa && servico && janela && temImagens && temGps) {
+    if (contrato && codigoBaixa && cidade && tecnico && empresa && janela && temImagens && temGps) {
         btnSalvar.disabled = false;
     } else {
         btnSalvar.disabled = true;
@@ -860,13 +828,13 @@ galleryInput.addEventListener('change', async (event) => {
 // --- SALVAMENTO REAL NO AZURE (Chamada à Azure Function) ---
 btnSalvar.addEventListener('click', async () => {
     const contrato = inputContrato.value.trim();
+    const codigoBaixa = inputCodigoBaixa.value.trim();
     const cidade = inputCidade.value.trim();
     const tecnico = inputTecnico.value.trim();
     const empresa = inputEmpresa.value.trim();
-    const servico = selectServico.value;
     const janela = selectJanela.value;
 
-    if (!contrato || !cidade || !tecnico || !empresa || !servico || !janela) {
+    if (!contrato || !codigoBaixa || !cidade || !tecnico || !empresa || !janela) {
         alert("Preencha todos os campos do formulário.");
         return;
     }
@@ -882,10 +850,10 @@ btnSalvar.addEventListener('click', async () => {
 
     const payloadEvidencia = {
         contrato: contrato,
+        codigoBaixa: codigoBaixa,
         cidade: cidade,
         tecnico: tecnico,
         empresa: empresa,
-        servico: servico,
         janela: janela,
         localizacao: localizacaoAtual,
         endereco: enderecoAtual,
@@ -908,10 +876,10 @@ btnSalvar.addEventListener('click', async () => {
                                    CONTRATO: ${contrato} | FOTOS ARMAZENADAS: ${listaImagens.length}
                                    </span>`;
 
-            // Reseta contrato, fotos, serviço e janela (MANTÉM Técnico, Empresa e Cidade salvos)
+            // Reseta contrato, código de baixa, fotos e janela (MANTÉM Técnico, Empresa e Cidade salvos)
             inputContrato.value = "";
-            selectServico.value = "";
-            atualizarOpcoesJanela(""); // Limpa e bloqueia a janela
+            inputCodigoBaixa.value = "";
+            selectJanela.value = "";
             
             listaImagens = [];
             localizacaoAtual = null;
