@@ -463,13 +463,13 @@ btnRetiradoForaToa.addEventListener('click', () => {
     modoRetiradoForaToa = !modoRetiradoForaToa;
     
     if (modoRetiradoForaToa) {
-        btnRetiradoForaToa.textContent = "MODO NORMAL 🏠";
+        btnRetiradoForaToa.textContent = "RETIRADO FORA TOA";
         btnRetiradoForaToa.style.background = "#2563eb"; // Muda para azul quando ativo
         btnTirarFoto.textContent = "FOTO DA ETIQUETA DO EQUIPAMENTO";
         wrapperCodigoBaixa.style.display = 'none';
         inputCodigoBaixa.value = ""; // Limpa o campo ocultado
     } else {
-        btnRetiradoForaToa.textContent = "RETIRADO FORA TOA 🚫";
+        btnRetiradoForaToa.textContent = "EVIDÊNCIA 🏠";
         btnRetiradoForaToa.style.background = "#dc2626"; // Vermelho padrão
         btnTirarFoto.textContent = "FOTO DA RESIDÊNCIA";
         wrapperCodigoBaixa.style.display = 'block';
