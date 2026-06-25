@@ -21,6 +21,15 @@ body{
     display: flex;
     justify-content: space-between;
     align-items: center;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.header-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
 }
 
 .btn-navigation {
@@ -31,6 +40,18 @@ body{
     border-radius: 6px;
     font-size: 14px;
     font-weight: bold;
+}
+
+.btn-toggle-mode {
+    background: #dc2626;
+    color: white;
+    padding: 8px 15px;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background 0.2s;
 }
 
 .container{
@@ -53,7 +74,7 @@ label{
     color: #94a3b8;
 }
 
-input, select {
+input, select, textarea {
     width:100%;
     padding:12px;
     border-radius:8px;
@@ -67,7 +88,12 @@ input, select {
     font-size: 14px;
 }
 
-input:disabled, select:disabled {
+textarea {
+    resize: vertical;
+    min-height: 80px;
+}
+
+input:disabled, select:disabled, textarea:disabled {
     background: #1e293b;
     border-color: #1e293b;
     color: #475569;
@@ -179,7 +205,10 @@ button{
 
 <div class="header">
     <span>📷 Aplicativo de Evidências</span>
-    <a href="/gerencial.html" class="btn-navigation">Painel Gerencial 📊</a>
+    <div class="header-actions">
+        <button id="btn-retirado-fora-toa" class="btn-toggle-mode">RETIRADO FORA TOA 🚫</button>
+        <a href="/gerencial.html" class="btn-navigation">Painel Gerencial 📊</a>
+    </div>
 </div>
 
 <div class="container">
@@ -205,9 +234,11 @@ button{
 <label>Contrato</label>
 <input id="input-contrato" placeholder="DIGITE O CONTRATO">
 
-<!-- Código de Baixa -->
-<label>Código de Baixa</label>
-<input id="input-codigo-baixa" inputmode="numeric" pattern="[0-9]*" placeholder="DIGITE APENAS NÚMEROS DO CÓDIGO">
+<!-- Bloco Código de Baixa (Pode ser ocultado) -->
+<div id="wrapper-codigo-baixa">
+    <label>Código de Baixa</label>
+    <input id="input-codigo-baixa" inputmode="numeric" pattern="[0-9]*" placeholder="DIGITE APENAS NÚMEROS DO CÓDIGO">
+</div>
 
 <!-- Janela de Serviço (Fixa com todos os horários) -->
 <label>Janela</label>
@@ -235,6 +266,10 @@ button{
     <button id="btn-atualizar-gps" class="btn-warning" style="display:none;">⚠️ ATUALIZAR GEOLOCALIZAÇÃO</button>
     <div id="preview-grid" class="preview-grid"></div>
 </div>
+
+<!-- Campo de Observações -->
+<label>Observações</label>
+<textarea id="input-observacao" placeholder="DIGITE UMA OBSERVAÇÃO (OPCIONAL)"></textarea>
 
 <!-- Botão Salvar (Inicia desabilitado) -->
 <button id="btn-salvar" class="btn-success" disabled>SALVAR EVIDÊNCIA</button>
@@ -394,6 +429,7 @@ const btnTirarFoto = document.getElementById('btn-tirar-foto');
 const btnGaleria = document.getElementById('btn-galeria');
 const btnSalvar = document.getElementById('btn-salvar');
 const btnAtualizarGps = document.getElementById('btn-atualizar-gps');
+const btnRetiradoForaToa = document.getElementById('btn-retirado-fora-toa');
 
 const cameraInput = document.getElementById('camera-input');
 const galleryInput = document.getElementById('gallery-input');
@@ -407,6 +443,8 @@ const inputEmpresa = document.getElementById('input-empresa');
 const inputCidade = document.getElementById('input-cidade');
 const inputContrato = document.getElementById('input-contrato');
 const inputCodigoBaixa = document.getElementById('input-codigo-baixa');
+const wrapperCodigoBaixa = document.getElementById('wrapper-codigo-baixa');
+const inputObservacao = document.getElementById('input-observacao');
 
 const selectJanela = document.getElementById('select-janela');
 
@@ -416,8 +454,29 @@ const listaCidadesDatalist = document.getElementById('lista-cidades');
 let listaImagens = [];
 let localizacaoAtual = null;
 let enderecoAtual = "Não disponível";
+let modoRetiradoForaToa = false;
 
 let buscaMetadadosPromise = null;
+
+// --- CONTROLE DE MODO (RETIRADO FORA TOA) ---
+btnRetiradoForaToa.addEventListener('click', () => {
+    modoRetiradoForaToa = !modoRetiradoForaToa;
+    
+    if (modoRetiradoForaToa) {
+        btnRetiradoForaToa.textContent = "MODO NORMAL 🏠";
+        btnRetiradoForaToa.style.background = "#2563eb"; // Muda para azul quando ativo
+        btnTirarFoto.textContent = "FOTO DA ETIQUETA DO EQUIPAMENTO";
+        wrapperCodigoBaixa.style.display = 'none';
+        inputCodigoBaixa.value = ""; // Limpa o campo ocultado
+    } else {
+        btnRetiradoForaToa.textContent = "RETIRADO FORA TOA 🚫";
+        btnRetiradoForaToa.style.background = "#dc2626"; // Vermelho padrão
+        btnTirarFoto.textContent = "FOTO DA RESIDÊNCIA";
+        wrapperCodigoBaixa.style.display = 'block';
+    }
+    
+    validarEstadoFormulario();
+});
 
 // --- POPULAR DATALIST DE EMPRESAS NO INÍCIO ---
 const empresasUnicas = [...new Set(dadosMapeamento.map(item => item.e))].sort();
@@ -528,7 +587,6 @@ inputContrato.addEventListener('input', (e) => {
 });
 
 inputCodigoBaixa.addEventListener('input', (e) => {
-    // Garante que apenas números sejam digitados ou colados
     const val = e.target.value.replace(/\D/g, '');
     e.target.value = val;
     validarEstadoFormulario();
@@ -536,6 +594,10 @@ inputCodigoBaixa.addEventListener('input', (e) => {
 
 selectJanela.addEventListener('change', () => {
     validarEstadoFormulario();
+});
+
+inputObservacao.addEventListener('input', (e) => {
+    e.target.value = e.target.value.toUpperCase();
 });
 
 // --- FUNÇÃO PARA CONTROLAR A ATIVAÇÃO DO BOTÃO SALVAR ---
@@ -555,7 +617,10 @@ function validarEstadoFormulario() {
         btnAtualizarGps.style.display = 'none';
     }
 
-    if (contrato && codigoBaixa && cidade && tecnico && empresa && janela && temImagens && temGps) {
+    // Código de Baixa deixa de ser obrigatório se estiver no modo "Retirado Fora Toa"
+    const codigoBaixaValido = modoRetiradoForaToa ? true : !!codigoBaixa;
+
+    if (contrato && codigoBaixaValido && cidade && tecnico && empresa && janela && temImagens && temGps) {
         btnSalvar.disabled = false;
     } else {
         btnSalvar.disabled = true;
@@ -713,13 +778,13 @@ function estamparMetadadosNaFoto(base64Src, callback) {
         let linhaAtual = '';
         
         for (let n = 0; n < palavras.length; n++) {
-            let linhaTeste = linhaAtual + palavras[n] + ' ';
-            let metricas = ctx.measureText(linhaTeste);
+            let linhaTeste = inlineWord = palavras[n] + ' ';
+            let metricas = ctx.measureText(linhaAtual + inlineWord);
             if (metricas.width > larguraMaximaTexto && n > 0) {
                 linhasEndereco.push(linhaAtual);
-                linhaAtual = palavras[n] + ' ';
+                linhaAtual = inlineWord;
             } else {
-                linhaAtual = linhaTeste;
+                linhaAtual = linhaAtual + inlineWord;
             }
         }
         linhasEndereco.push(linhaAtual);
@@ -788,6 +853,7 @@ cameraInput.addEventListener('change', (event) => {
         }
         reader.readAsDataURL(file);
     }
+    cameraInput.value = ""; // Limpa cache do input para possibilitar novas capturas sequenciais
 });
 
 // --- CONTROLE DA GALERIA ---
@@ -823,6 +889,7 @@ galleryInput.addEventListener('change', async (event) => {
             reader.readAsDataURL(file);
         }
     }
+    galleryInput.value = ""; // Limpa cache do input para possibilitar novas seleções
 });
 
 // --- SALVAMENTO REAL NO AZURE (Chamada à Azure Function) ---
@@ -833,8 +900,12 @@ btnSalvar.addEventListener('click', async () => {
     const tecnico = inputTecnico.value.trim();
     const empresa = inputEmpresa.value.trim();
     const janela = selectJanela.value;
+    const observacao = inputObservacao.value.trim();
 
-    if (!contrato || !codigoBaixa || !cidade || !tecnico || !empresa || !janela) {
+    // Validação de segurança no clique
+    const codigoBaixaValido = modoRetiradoForaToa ? "FORA TOA" : codigoBaixa;
+
+    if (!contrato || !codigoBaixaValido || !cidade || !tecnico || !empresa || !janela) {
         alert("Preencha todos os campos do formulário.");
         return;
     }
@@ -856,7 +927,7 @@ btnSalvar.addEventListener('click', async () => {
 
     const payloadEvidencia = {
         contrato: contrato,
-        codigoBaixa: codigoBaixa,
+        codigoBaixa: codigoBaixaValido, 
         cidade: cidade,
         tecnico: tecnico,
         empresa: empresa,
@@ -864,7 +935,8 @@ btnSalvar.addEventListener('click', async () => {
         janela: janela,
         localizacao: localizacaoAtual,
         endereco: enderecoAtual,
-        imagens: listaImagens
+        imagens: listaImagens,
+        observacao: observacao // Enviando as observações preenchidas
     };
 
     try {
@@ -880,12 +952,13 @@ btnSalvar.addEventListener('click', async () => {
             alertSave.style.display = 'block';
             alertSave.innerHTML = `✅ EVIDÊNCIA GRAVADA NO AZURE COM SUCESSO!<br>
                                    <span style="font-size:12px; font-weight:normal;">
-                                   CONTRATO: ${contrato} | TIPO: ${servicoDinamico} | FOTOS ARMAZENADAS: ${listaImagens.length}
+                                   CONTRATO: ${contrato} | TIPO: ${servicoDinamico} | FOTOS: ${listaImagens.length}
                                    </span>`;
 
-            // Reseta contrato, código de baixa, fotos e janela (MANTÉM Técnico, Empresa e Cidade salvos)
+            // Reseta contrato, código de baixa, observação, fotos e janela (MANTÉM Técnico, Empresa e Cidade salvos)
             inputContrato.value = "";
             inputCodigoBaixa.value = "";
+            inputObservacao.value = "";
             selectJanela.value = "";
             
             listaImagens = [];
@@ -898,6 +971,11 @@ btnSalvar.addEventListener('click', async () => {
                 atualizarCidadesDaEmpresa(inputEmpresa.value);
             } else {
                 atualizarCidadesDaEmpresa('');
+            }
+            
+            // Retorna o aplicativo para o modo normal caso estivesse ativo
+            if (modoRetiradoForaToa) {
+                btnRetiradoForaToa.click();
             }
             
             validarEstadoFormulario();
