@@ -17,10 +17,12 @@ app.http('salvarEvidencia', {
             }
 
             const body = await request.json();
-            // Lendo os novos parâmetros enviados pelo frontend (servico e janela)
-            const { contrato, cidade, tecnico, empresa, servico, janela, localizacao, endereco, imagens } = body;
+            
+            // 1. Extraindo o novo parâmetro "codigoBaixa" enviado pelo frontend
+            const { contrato, codigoBaixa, cidade, tecnico, empresa, servico, janela, localizacao, endereco, imagens } = body;
 
-            if (!contrato || !cidade || !tecnico || !empresa || !servico || !janela || !imagens || imagens.length === 0) {
+            // 2. Adicionado "!codigoBaixa" para garantir que o servidor valide o preenchimento dele
+            if (!contrato || !codigoBaixa || !cidade || !tecnico || !empresa || !servico || !janela || !imagens || imagens.length === 0) {
                 return { status: 400, jsonBody: { error: 'Dados incompletos fornecidos no formulário.' } };
             }
 
@@ -56,16 +58,17 @@ app.http('salvarEvidencia', {
             const partitionKey = cidade.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
             const rowKey = `${contrato}-${Date.now()}`;
 
-            // Registro agora possui os campos servico e janela indexados
+            // 3. O registro agora inclui "codigoBaixa" para persistência no banco de dados
             const registroEvidencia = {
                 partitionKey: partitionKey,
                 rowKey: rowKey,
                 contrato: contrato,
+                codigoBaixa: codigoBaixa, // Campo incluído na tabela
                 cidade: cidade,
                 tecnico: tecnico,
                 empresa: empresa,
-                servico: servico,  // Novo campo na tabela
-                janela: janela,    // Novo campo na tabela
+                servico: servico,  
+                janela: janela,    
                 latitude: localizacao ? parseFloat(localizacao.latitude) : 0,
                 longitude: localizacao ? parseFloat(localizacao.longitude) : 0,
                 endereco: endereco || 'Não disponível',
