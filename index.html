@@ -848,15 +848,19 @@ btnSalvar.addEventListener('click', async () => {
     btnSalvar.textContent = "SALVANDO DADOS NO AZURE...";
     alertSave.style.display = 'none';
 
-    // Montando o pacote de envio.
-    // O campo "servico" é preenchido como "RETIRADA" para satisfazer a verificação obrigatória do servidor (backend)
+    // REGRA DE NEGÓCIO: Define dinamicamente o tipo de serviço baseado na janela
+    let servicoDinamico = "RETIRADA";
+    if (janela === "08HRS-12HRS" || janela === "12HRS-18HRS") {
+        servicoDinamico = "BOX";
+    }
+
     const payloadEvidencia = {
         contrato: contrato,
         codigoBaixa: codigoBaixa,
         cidade: cidade,
         tecnico: tecnico,
         empresa: empresa,
-        servico: "RETIRADA", 
+        servico: servicoDinamico, 
         janela: janela,
         localizacao: localizacaoAtual,
         endereco: enderecoAtual,
@@ -876,7 +880,7 @@ btnSalvar.addEventListener('click', async () => {
             alertSave.style.display = 'block';
             alertSave.innerHTML = `✅ EVIDÊNCIA GRAVADA NO AZURE COM SUCESSO!<br>
                                    <span style="font-size:12px; font-weight:normal;">
-                                   CONTRATO: ${contrato} | FOTOS ARMAZENADAS: ${listaImagens.length}
+                                   CONTRATO: ${contrato} | TIPO: ${servicoDinamico} | FOTOS ARMAZENADAS: ${listaImagens.length}
                                    </span>`;
 
             // Reseta contrato, código de baixa, fotos e janela (MANTÉM Técnico, Empresa e Cidade salvos)
