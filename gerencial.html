@@ -35,8 +35,97 @@ body{
 
 .container{
     padding:20px;
-    max-width: 1000px;
+    max-width: 1200px;
     margin: 0 auto;
+}
+
+/* Novo Layout em Duas Colunas */
+.dashboard-layout {
+    display: flex;
+    gap: 20px;
+    margin-top: 10px;
+}
+
+/* Coluna Lateral Esquerda (Ranking) */
+.sidebar-left {
+    width: 320px;
+    flex-shrink: 0;
+    background: #1e293b;
+    border-radius: 10px;
+    padding: 20px;
+    border: 1px solid #334155;
+    align-self: flex-start;
+    box-sizing: border-box;
+}
+
+.sidebar-left h3 {
+    margin-top: 0;
+    margin-bottom: 5px;
+    font-size: 18px;
+    color: #38bdf8;
+}
+
+.sidebar-left p {
+    font-size: 12px;
+    color: #94a3b8;
+    margin-bottom: 15px;
+}
+
+/* Itens da lista de ranking */
+.ranking-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.ranking-item {
+    background: #0f172a;
+    border: 1px solid #334155;
+    padding: 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: background 0.2s, border-color 0.2s;
+}
+
+.ranking-item:hover {
+    background: #1e293b;
+    border-color: #38bdf8;
+}
+
+.ranking-item.active {
+    background: #2563eb;
+    border-color: #38bdf8;
+}
+
+.ranking-name {
+    font-weight: bold;
+    font-size: 13px;
+    text-transform: uppercase;
+    color: #e2e8f0;
+}
+
+.ranking-count {
+    background: #1e293b;
+    color: #38bdf8;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: bold;
+    border: 1px solid #334155;
+}
+
+.ranking-item.active .ranking-count {
+    background: #0f172a;
+    color: white;
+}
+
+/* Coluna Direita (Principal) */
+.main-content-right {
+    flex-grow: 1;
+    min-width: 0; /* Evita quebra de grid flexível */
 }
 
 /* Área de Métricas */
@@ -44,7 +133,7 @@ body{
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 15px;
-    margin-bottom: 25px;
+    margin-bottom: 20px;
 }
 
 .metric-card {
@@ -67,13 +156,13 @@ body{
     background: #1e293b;
     padding: 20px;
     border-radius: 10px;
-    margin-bottom: 25px;
+    margin-bottom: 20px;
     border: 1px solid #334155;
 }
 
 .filter-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
     gap: 15px;
 }
 
@@ -101,7 +190,7 @@ body{
     background: #1e293b;
     border-radius: 10px;
     padding: 20px;
-    margin-bottom: 25px;
+    margin-bottom: 20px;
     border: 1px solid #334155;
 }
 
@@ -187,12 +276,25 @@ body{
     color: #94a3b8;
     font-size: 16px;
 }
+
+/* Responsividade do Layout */
+@media (max-width: 768px) {
+    .dashboard-layout {
+        flex-direction: column;
+    }
+    .sidebar-left {
+        width: 100%;
+    }
+    .metrics-container {
+        grid-template-columns: 1fr;
+    }
+}
 </style>
 </head>
 
 <body>
 
-<!-- Modal de Autenticação com Tela Inteira -->
+<!-- Modal de Autenticação -->
 <div id="auth-modal" style="display: flex; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #0f172a; justify-content: center; align-items: center; z-index: 9999;">
     <div style="background: #1e293b; padding: 30px; border-radius: 12px; max-width: 400px; width: 90%; border: 1px solid #334155; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.5);">
         <span style="font-size: 40px;">🔒</span>
@@ -211,56 +313,74 @@ body{
 
 <div class="container">
 
-    <!-- Métricas Consolidadas -->
-    <div class="metrics-container">
-        <div class="metric-card">
-            <div>Empresas Cadastradas</div>
-            <div id="metric-empresas" class="metric-value">0</div>
+    <div class="dashboard-layout">
+        
+        <!-- Coluna Esquerda: Ranking de Empresas (Novo Componente) -->
+        <div class="sidebar-left">
+            <h3>🏢 Recorrência</h3>
+            <p>Empresas com mais contratos repetidos (re-visitas):</p>
+            <div id="sidebar-ranking-list" class="ranking-list">
+                <div style="font-size: 12px; color: #94a3b8;">Carregando ranking...</div>
+            </div>
         </div>
-        <div class="metric-card">
-            <div>Técnicos (Logins)</div>
-            <div id="metric-logins" class="metric-value">0</div>
-        </div>
-        <div class="metric-card">
-            <div>Total de Preenchimentos</div>
-            <div id="metric-total" class="metric-value">0</div>
-        </div>
-    </div>
 
-    <!-- Filtros Inteligentes -->
-    <div class="filter-card">
-        <h3>Filtros de Pesquisa</h3>
-        <div class="filter-grid">
-            <div class="filter-group">
-                <label>Data Início (Calendário)</label>
-                <input type="date" id="filtro-data-inicio">
+        <!-- Coluna Direita: Dashboard Geral -->
+        <div class="main-content-right">
+            
+            <!-- Métricas Consolidadas -->
+            <div class="metrics-container">
+                <div class="metric-card">
+                    <div>Empresas Cadastradas</div>
+                    <div id="metric-empresas" class="metric-value">0</div>
+                </div>
+                <div class="metric-card">
+                    <div>Técnicos (Logins)</div>
+                    <div id="metric-logins" class="metric-value">0</div>
+                </div>
+                <div class="metric-card">
+                    <div>Total de Preenchimentos</div>
+                    <div id="metric-total" class="metric-value">0</div>
+                </div>
             </div>
-            <div class="filter-group">
-                <label>Data Fim (Calendário)</label>
-                <input type="date" id="filtro-data-fim">
-            </div>
-            <div class="filter-group">
-                <label>Filtrar por Empresa</label>
-                <select id="filtro-empresa">
-                    <option value="">Todas as Empresas</option>
-                </select>
-            </div>
-            <div class="filter-group">
-                <label>Filtrar por Técnico</label>
-                <select id="filtro-tecnico">
-                    <option value="">Todos os Técnicos</option>
-                </select>
-            </div>
-            <div class="filter-group">
-                <label>Contrato</label>
-                <input type="text" id="filtro-contrato" placeholder="Digite o contrato...">
-            </div>
-        </div>
-    </div>
 
-    <!-- Lista de Resultados Agrupados -->
-    <div id="resultados-container">
-        <div class="no-data">Por favor, faça o login acima para carregar as informações.</div>
+            <!-- Filtros Inteligentes -->
+            <div class="filter-card">
+                <h3>Filtros de Pesquisa</h3>
+                <div class="filter-grid">
+                    <div class="filter-group">
+                        <label>Data Início (Calendário)</label>
+                        <input type="date" id="filtro-data-inicio">
+                    </div>
+                    <div class="filter-group">
+                        <label>Data Fim (Calendário)</label>
+                        <input type="date" id="filtro-data-fim">
+                    </div>
+                    <div class="filter-group">
+                        <label>Filtrar por Empresa</label>
+                        <select id="filtro-empresa">
+                            <option value="">Todas as Empresas</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Filtrar por Técnico</label>
+                        <select id="filtro-tecnico">
+                            <option value="">Todos os Técnicos</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Contrato</label>
+                        <input type="text" id="filtro-contrato" placeholder="Digite o contrato...">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Lista de Resultados Agrupados -->
+            <div id="resultados-container">
+                <div class="no-data">Por favor, faça o login acima para carregar as informações.</div>
+            </div>
+
+        </div>
+
     </div>
 
 </div>
@@ -269,6 +389,7 @@ body{
 let todasEvidencias = [];
 
 const resultadosContainer = document.getElementById('resultados-container');
+const sidebarRankingList = document.getElementById('sidebar-ranking-list');
 
 const filtroDataInicio = document.getElementById('filtro-data-inicio');
 const filtroDataFim = document.getElementById('filtro-data-fim');
@@ -308,6 +429,7 @@ inputTokenAcesso.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') btnAutenticar.click();
 });
 
+// --- CARREGAR DADOS DO AZURE ---
 async function carregarDados(token) {
     try {
         const response = await fetch('/api/obterEvidencias', {
@@ -370,6 +492,72 @@ function popularOpcoesFiltro() {
     });
 }
 
+// --- FUNÇÃO PARA PROCESSAR E EXIBIR O RANKING DE EMPRESAS RECORRENTES ---
+function processarRankingLateral(dadosFiltrados) {
+    const mapaEmpresas = {};
+
+    // Agrupa visitas filtradas por Empresa e depois por Contrato
+    dadosFiltrados.forEach(item => {
+        const emp = item.empresa || 'N/A';
+        const cont = item.contrato || 'N/A';
+        if (!mapaEmpresas[emp]) mapaEmpresas[emp] = {};
+        if (!mapaEmpresas[emp][cont]) mapaEmpresas[emp][cont] = [];
+        mapaEmpresas[emp][cont].push(item);
+    });
+
+    const listaEmpresasRanking = [];
+
+    Object.entries(mapaEmpresas).forEach(([empNome, contratosObj]) => {
+        let totalContratosRecorrentes = 0;
+        
+        Object.entries(contratosObj).forEach(([contNum, visitas]) => {
+            // Contrato recorrente = Contratos que possuem mais de 1 preenchimento no banco
+            if (visitas.length > 1) {
+                totalContratosRecorrentes++;
+            }
+        });
+        
+        if (totalContratosRecorrentes > 0) {
+            listaEmpresasRanking.push({
+                nome: empNome,
+                qtdRecorrentes: totalContratosRecorrentes
+            });
+        }
+    });
+
+    // Ordena do maior volume de contratos recorrentes para o menor
+    listaEmpresasRanking.sort((a, b) => b.qtdRecorrentes - a.qtdRecorrentes);
+
+    if (listaEmpresasRanking.length === 0) {
+        sidebarRankingList.innerHTML = '<div class="no-data" style="padding: 10px; font-size:12px;">Nenhuma re-visita localizada para os filtros definidos.</div>';
+        return;
+    }
+
+    sidebarRankingList.innerHTML = '';
+    const empresaSelecionadaAtualmente = filtroEmpresa.value;
+
+    listaEmpresasRanking.forEach(item => {
+        const isActive = (item.nome === empresaSelecionadaAtualmente);
+        const itemDiv = document.createElement('div');
+        itemDiv.className = `ranking-item ${isActive ? 'active' : ''}`;
+        itemDiv.innerHTML = `
+            <span class="ranking-name">${item.nome}</span>
+            <span class="ranking-count">${item.qtdRecorrentes} cont.</span>
+        `;
+        
+        // Ao clicar no item do ranking, filtra os resultados dinamicamente
+        itemDiv.addEventListener('click', () => {
+            if (isActive) {
+                filtroEmpresa.value = ''; // Desmarca se já estiver ativo
+            } else {
+                filtroEmpresa.value = item.nome; // Filtra pela empresa clicada
+            }
+            processarEFiltarDados();
+        });
+        sidebarRankingList.appendChild(itemDiv);
+    });
+}
+
 function processarEFiltarDados() {
     const dataInicioVal = filtroDataInicio.value;
     const dataFimVal = filtroDataFim.value;
@@ -407,6 +595,9 @@ function processarEFiltarDados() {
     metricLogins.textContent = loginsFiltradas.length;
     metricTotal.textContent = dadosFiltrados.length;
 
+    // Atualiza o ranking dinâmico com base nos filtros da tela
+    processarRankingLateral(dadosFiltrados);
+
     const contratosAgrupados = {};
     dadosFiltrados.forEach(item => {
         if (!contratosAgrupados[item.contrato]) {
@@ -426,10 +617,15 @@ function renderizarResultados(contratosAgrupados) {
         return;
     }
 
+    // --- REQUISITO: ORDENAR DO MAIOR NÚMERO DE VISITAS PARA O MENOR ---
+    chavesContratos.sort((a, b) => contratosAgrupados[b].length - contratosAgrupados[a].length);
+
     resultadosContainer.innerHTML = '';
 
     chavesContratos.forEach(contrato => {
         const ocorrencias = contratosAgrupados[contrato];
+        
+        // Ordena internamente do preenchimento mais recente para o mais antigo
         ocorrencias.sort((a, b) => new Date(b.dataHora) - new Date(a.dataHora));
 
         const blocoContrato = document.createElement('div');
@@ -448,7 +644,6 @@ function renderizarResultados(contratosAgrupados) {
 
             const dataFormatada = new Date(item.dataHora).toLocaleString('pt-BR');
 
-            // Exibição atualizada incluindo os novos campos: Serviço e Janela
             let htmlEvidencia = `
                 <div class="evidencia-meta">
                     <span>📅 Realizado em: <strong>${dataFormatada}</strong></span>
