@@ -848,12 +848,15 @@ btnSalvar.addEventListener('click', async () => {
     btnSalvar.textContent = "SALVANDO DADOS NO AZURE...";
     alertSave.style.display = 'none';
 
+    // Montando o pacote de envio.
+    // O campo "servico" é preenchido como "RETIRADA" para satisfazer a verificação obrigatória do servidor (backend)
     const payloadEvidencia = {
         contrato: contrato,
         codigoBaixa: codigoBaixa,
         cidade: cidade,
         tecnico: tecnico,
         empresa: empresa,
+        servico: "RETIRADA", 
         janela: janela,
         localizacao: localizacaoAtual,
         endereco: enderecoAtual,
