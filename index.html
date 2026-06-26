@@ -192,45 +192,12 @@ button{
     margin-top: 10px;
 }
 
-/* NOVO: caixa da foto com botão de excluir */
-.thumb-box {
-    position: relative;
-    width: 100%;
-    aspect-ratio: 1;
-}
-
 .thumb-preview {
     width: 100%;
     aspect-ratio: 1;
     object-fit: cover;
     border-radius: 8px;
     border: 2px solid #334155;
-    box-sizing: border-box;
-}
-
-/* NOVO: botão excluir foto */
-.btn-excluir-foto {
-    position: absolute;
-    top: 5px;
-    right: 5px;
-    background: #dc2626;
-    color: white;
-    border: none;
-    border-radius: 50%;
-    width: 28px;
-    height: 28px;
-    min-width: 28px;
-    padding: 0;
-    font-size: 18px;
-    font-weight: bold;
-    cursor: pointer;
-    line-height: 28px;
-    text-align: center;
-    z-index: 10;
-}
-
-.btn-excluir-foto:active {
-    background: #991b1b;
 }
 
 .geo-badge {
@@ -267,7 +234,7 @@ button{
         <!-- Estrutura de botões de alternância de modo -->
         <button id="btn-modo-evidencia" class="btn-mode btn-mode-evidencia">EVIDÊNCIA 🏠</button>
         <button id="btn-modo-toa" class="btn-mode btn-mode-toa">RETIRADO FORA TOA 🚫</button>
-        /gerencial.htmlPainel Gerencial 📊</a>
+        <a href="/gerencial.html" class="btn-navigation">Painel Gerencial 📊</a>
     </div>
 </div>
 
@@ -538,11 +505,11 @@ function alternarModo(modo) {
         tituloPagina.textContent = "Novo Retirado Fora TOA";
         
         wrapperCodigoBaixa.style.display = 'none';
-        wrapperJanela.style.display = 'none';
-        btnGaleria.style.display = 'none';
+        wrapperJanela.style.display = 'none'; // Oculta a janela de horário nesta aba
+        btnGaleria.style.display = 'none';    // Oculta o botão de print de ligação nesta aba
         
         inputCodigoBaixa.value = ""; 
-        selectJanela.value = "";
+        selectJanela.value = ""; // Reseta o valor selecionado para evitar inconsistência
     } else {
         modoRetiradoForaToa = false;
         localStorage.setItem('modo_ativo', 'evidencia');
@@ -554,8 +521,8 @@ function alternarModo(modo) {
         tituloPagina.textContent = "Nova Evidência";
         
         wrapperCodigoBaixa.style.display = 'block';
-        wrapperJanela.style.display = 'block';
-        btnGaleria.style.display = 'block';
+        wrapperJanela.style.display = 'block'; // Exibe a janela de horário nesta aba
+        btnGaleria.style.display = 'block';    // Mostra o botão de print de ligação nesta aba
     }
     validarEstadoFormulario();
 }
@@ -706,6 +673,7 @@ function validarEstadoFormulario() {
         btnAtualizarGps.style.display = 'none';
     }
 
+    // Código de Baixa e Janela deixam de ser obrigatórios se estiver no modo "Retirado Fora Toa"
     const codigoBaixaValido = modoRetiradoForaToa ? true : !!codigoBaixa;
     const janelaValida = modoRetiradoForaToa ? true : !!janela;
 
@@ -873,7 +841,7 @@ function estamparMetadadosNaFoto(base64Src, callback) {
                 linhasEndereco.push(linhaAtual);
                 linhaAtual = inlineWord;
             } else {
-                linhaAtual = linhaAtual + inlineWord;
+                linhaAtual = inlineWord = linhaAtual + inlineWord;
             }
         }
         linhasEndereco.push(linhaAtual);
@@ -898,58 +866,14 @@ function estamparMetadadosNaFoto(base64Src, callback) {
     };
 }
 
-/* NOVO: adiciona foto e redesenha grade com botão excluir */
 function adicionarImagemNaGrade(base64Image) {
     listaImagens.push(base64Image);
-    renderizarGradeFotos();
-    validarEstadoFormulario();
-}
-
-/* NOVO: renderiza todas as fotos com X para excluir */
-function renderizarGradeFotos() {
-    previewGrid.innerHTML = "";
-
-    listaImagens.forEach((base64Image, index) => {
-        const box = document.createElement('div');
-        box.className = 'thumb-box';
-
-        const img = document.createElement('img');
-        img.src = base64Image;
-        img.className = 'thumb-preview';
-
-        const btnExcluir = document.createElement('button');
-        btnExcluir.className = 'btn-excluir-foto';
-        btnExcluir.innerHTML = "×";
-        btnExcluir.title = "Excluir foto";
-        btnExcluir.type = "button";
-
-        btnExcluir.addEventListener('click', () => {
-            excluirFoto(index);
-        });
-
-        box.appendChild(img);
-        box.appendChild(btnExcluir);
-        previewGrid.appendChild(box);
-    });
-}
-
-/* NOVO: exclui foto antes de salvar */
-function excluirFoto(index) {
-    const confirmar = confirm("Deseja excluir esta foto?");
-
-    if (!confirmar) {
-        return;
-    }
-
-    listaImagens.splice(index, 1);
-    renderizarGradeFotos();
-
-    if (listaImagens.length === 0) {
-        localizacaoAtual = null;
-        enderecoAtual = "Não disponível";
-        geoInfo.style.display = 'none';
-    }
-
+    
+    const img = document.createElement('img');
+    img.src = base64Image;
+    img.className = 'thumb-preview';
+    previewGrid.appendChild(img);
+    
     validarEstadoFormulario();
 }
 
@@ -986,7 +910,7 @@ cameraInput.addEventListener('change', (event) => {
         }
         reader.readAsDataURL(file);
     }
-    cameraInput.value = "";
+    cameraInput.value = ""; // Limpa cache do input para possibilitar novas capturas sequenciais
 });
 
 // --- CONTROLE DA GALERIA ---
@@ -1022,7 +946,7 @@ galleryInput.addEventListener('change', async (event) => {
             reader.readAsDataURL(file);
         }
     }
-    galleryInput.value = "";
+    galleryInput.value = ""; // Limpa cache do input para possibilitar novas seleções
 });
 
 // --- SALVAMENTO REAL NO AZURE (Chamada à Azure Function) ---
@@ -1035,6 +959,7 @@ btnSalvar.addEventListener('click', async () => {
     const janela = selectJanela.value;
     const observacao = inputObservacao.value.trim();
 
+    // Ajuste dos valores de validação para o envio baseado no modo ativo
     const codigoBaixaValido = modoRetiradoForaToa ? "FORA TOA" : codigoBaixa;
     const janelaValida = modoRetiradoForaToa ? "FORA TOA" : janela;
 
@@ -1052,6 +977,7 @@ btnSalvar.addEventListener('click', async () => {
     btnSalvar.textContent = "SALVANDO DADOS NO AZURE...";
     alertSave.style.display = 'none';
 
+    // REGRA DE NEGÓCIO: Define dinamicamente o tipo de serviço baseado na janela ou no modo
     let servicoDinamico = "RETIRADA";
     if (!modoRetiradoForaToa && (janela === "08HRS-12HRS" || janela === "12HRS-18HRS")) {
         servicoDinamico = "BOX";
@@ -1070,7 +996,7 @@ btnSalvar.addEventListener('click', async () => {
         localizacao: localizacaoAtual,
         endereco: enderecoAtual,
         imagens: listaImagens,
-        observacao: observacao
+        observacao: observacao // Enviando as observações preenchidas
     };
 
     try {
@@ -1089,6 +1015,7 @@ btnSalvar.addEventListener('click', async () => {
                                    CONTRATO: ${contrato} | TIPO: ${servicoDinamico} | FOTOS: ${listaImagens.length}
                                    </span>`;
 
+            // Reseta contrato, código de baixa, observação, fotos e janela (MANTÉM Técnico, Empresa e Cidade salvos)
             inputContrato.value = "";
             inputCodigoBaixa.value = "";
             inputObservacao.value = "";
@@ -1106,6 +1033,7 @@ btnSalvar.addEventListener('click', async () => {
                 atualizarCidadesDaEmpresa('');
             }
             
+            // Retorna o aplicativo para o modo normal (Evidência) após gravação bem sucedida
             alternarModo('evidencia');
             
             validarEstadoFormulario();
