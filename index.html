@@ -267,17 +267,19 @@ button{
     <input id="input-codigo-baixa" inputmode="numeric" pattern="[0-9]*" placeholder="DIGITE APENAS NÚMEROS DO CÓDIGO">
 </div>
 
-<!-- Janela de Serviço (Fixa com todos os horários) -->
-<label>Janela</label>
-<select id="select-janela">
-    <option value="">SELECIONE A JANELA DE ATENDIMENTO</option>
-    <option value="08HRS-11HRS">08HRS-11HRS</option>
-    <option value="11HRS-14HRS">11HRS-14HRS</option>
-    <option value="14HRS-17HRS">14HRS-17HRS</option>
-    <option value="08HRS-12HRS">08HRS-12HRS</option>
-    <option value="12HRS-18HRS">12HRS-18HRS</option>
-    <option value="08HRS-22HRS">08HRS-22HRS</option>
-</select>
+<!-- Bloco Janela de Serviço (Pode ser ocultado) -->
+<div id="wrapper-janela">
+    <label>Janela</label>
+    <select id="select-janela">
+        <option value="">SELECIONE A JANELA DE ATENDIMENTO</option>
+        <option value="08HRS-11HRS">08HRS-11HRS</option>
+        <option value="11HRS-14HRS">11HRS-14HRS</option>
+        <option value="14HRS-17HRS">14HRS-17HRS</option>
+        <option value="08HRS-12HRS">08HRS-12HRS</option>
+        <option value="12HRS-18HRS">12HRS-18HRS</option>
+        <option value="08HRS-22HRS">08HRS-22HRS</option>
+    </select>
+</div>
 
 <!-- Inputs ocultos para Câmera e Galeria -->
 <input type="file" id="camera-input" accept="image/*" capture="environment" style="display:none;">
@@ -474,6 +476,7 @@ const inputCidade = document.getElementById('input-cidade');
 const inputContrato = document.getElementById('input-contrato');
 const inputCodigoBaixa = document.getElementById('input-codigo-baixa');
 const wrapperCodigoBaixa = document.getElementById('wrapper-codigo-baixa');
+const wrapperJanela = document.getElementById('wrapper-janela');
 const inputObservacao = document.getElementById('input-observacao');
 const tituloPagina = document.getElementById('titulo-pagina');
 
@@ -500,9 +503,13 @@ function alternarModo(modo) {
         
         btnTirarFoto.textContent = "FOTO DA ETIQUETA DO EQUIPAMENTO";
         tituloPagina.textContent = "Novo Retirado Fora TOA";
+        
         wrapperCodigoBaixa.style.display = 'none';
-        btnGaleria.style.display = 'none'; // Oculta o botão de print de ligação nesta aba
-        inputCodigoBaixa.value = ""; // Limpa o campo ocultado
+        wrapperJanela.style.display = 'none'; // Oculta a janela de horário nesta aba
+        btnGaleria.style.display = 'none';    // Oculta o botão de print de ligação nesta aba
+        
+        inputCodigoBaixa.value = ""; 
+        selectJanela.value = ""; // Reseta o valor selecionado para evitar inconsistência
     } else {
         modoRetiradoForaToa = false;
         localStorage.setItem('modo_ativo', 'evidencia');
@@ -512,8 +519,10 @@ function alternarModo(modo) {
         
         btnTirarFoto.textContent = "FOTO DA RESIDÊNCIA";
         tituloPagina.textContent = "Nova Evidência";
+        
         wrapperCodigoBaixa.style.display = 'block';
-        btnGaleria.style.display = 'block'; // Mostra o botão de print de ligação nesta aba
+        wrapperJanela.style.display = 'block'; // Exibe a janela de horário nesta aba
+        btnGaleria.style.display = 'block';    // Mostra o botão de print de ligação nesta aba
     }
     validarEstadoFormulario();
 }
@@ -664,10 +673,11 @@ function validarEstadoFormulario() {
         btnAtualizarGps.style.display = 'none';
     }
 
-    // Código de Baixa deixa de ser obrigatório se estiver no modo "Retirado Fora Toa"
+    // Código de Baixa e Janela deixam de ser obrigatórios se estiver no modo "Retirado Fora Toa"
     const codigoBaixaValido = modoRetiradoForaToa ? true : !!codigoBaixa;
+    const janelaValida = modoRetiradoForaToa ? true : !!janela;
 
-    if (contrato && codigoBaixaValido && cidade && tecnico && empresa && janela && temImagens && temGps) {
+    if (contrato && codigoBaixaValido && cidade && tecnico && empresa && janelaValida && temImagens && temGps) {
         btnSalvar.disabled = false;
     } else {
         btnSalvar.disabled = true;
@@ -949,10 +959,11 @@ btnSalvar.addEventListener('click', async () => {
     const janela = selectJanela.value;
     const observacao = inputObservacao.value.trim();
 
-    // Validação de segurança no clique
+    // Ajuste dos valores de validação para o envio baseado no modo ativo
     const codigoBaixaValido = modoRetiradoForaToa ? "FORA TOA" : codigoBaixa;
+    const janelaValida = modoRetiradoForaToa ? "FORA TOA" : janela;
 
-    if (!contrato || !codigoBaixaValido || !cidade || !tecnico || !empresa || !janela) {
+    if (!contrato || !codigoBaixaValido || !cidade || !tecnico || !empresa || !janelaValida) {
         alert("Preencha todos os campos do formulário.");
         return;
     }
@@ -966,10 +977,12 @@ btnSalvar.addEventListener('click', async () => {
     btnSalvar.textContent = "SALVANDO DADOS NO AZURE...";
     alertSave.style.display = 'none';
 
-    // REGRA DE NEGÓCIO: Define dinamicamente o tipo de serviço baseado na janela
+    // REGRA DE NEGÓCIO: Define dinamicamente o tipo de serviço baseado na janela ou no modo
     let servicoDinamico = "RETIRADA";
-    if (janela === "08HRS-12HRS" || janela === "12HRS-18HRS") {
+    if (!modoRetiradoForaToa && (janela === "08HRS-12HRS" || janela === "12HRS-18HRS")) {
         servicoDinamico = "BOX";
+    } else if (modoRetiradoForaToa) {
+        servicoDinamico = "FORA TOA";
     }
 
     const payloadEvidencia = {
@@ -979,7 +992,7 @@ btnSalvar.addEventListener('click', async () => {
         tecnico: tecnico,
         empresa: empresa,
         servico: servicoDinamico, 
-        janela: janela,
+        janela: janelaValida,
         localizacao: localizacaoAtual,
         endereco: enderecoAtual,
         imagens: listaImagens,
