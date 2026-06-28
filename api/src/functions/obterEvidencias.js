@@ -44,8 +44,10 @@ app.http('obterEvidencias', {
                     cidade: entity.cidade,
                     tecnico: entity.tecnico,
                     empresa: entity.empresa,
-                    servico: entity.servico || 'N/A', // Captura o novo campo
-                    janela: entity.janela || 'N/A',   // Captura o novo campo
+                    servico: entity.servico || 'N/A', 
+                    janela: entity.janela || 'N/A',   
+                    observacao: entity.observacao || '', // Recupera o campo observação do Azure
+                    caId: entity.caId || '',             // Recupera o campo caId do Azure
                     latitude: entity.latitude,
                     longitude: entity.longitude,
                     endereco: entity.endereco,
