@@ -660,7 +660,7 @@ function validarEstadoFormulario() {
     }
 }
 
-// --- RECONHECIMENTO ÓPTICO DE CARACTERES (OCR - TESSERACT) ---
+// --- RECONHECIMENTO ÓPTICO DE CARACTERES (OCR - TESSERACT CORRIGIDO) ---
 async function analisarImagemOCR(base64Src) {
     if (!modoRetiradoForaToa) return; 
     
@@ -670,12 +670,26 @@ async function analisarImagemOCR(base64Src) {
     try {
         const result = await Tesseract.recognize(base64Src, 'eng');
         const textoDetectado = result.data.text;
+        console.log("Texto detectado pelo OCR:", textoDetectado);
         
-        // Limpa espaços e formatações para buscar blocos numéricos contínuos de 12 dígitos
-        const matches = textoDetectado.replace(/[\s\-\.]/g, '').match(/\d{12}/);
+        let caIdDetectado = null;
+
+        // Tentativa 1: Busca baseada no prefixo "CA ID" (e variações de leitura)
+        const regexComPrefixo = /(?:ca\s*id|caid|c4\s*id|ga\s*id|ca\s*1d|cald)[\s\:\-\.\=]*(\d{12})/i;
+        const matchComPrefixo = textoDetectado.match(regexComPrefixo);
+
+        if (matchComPrefixo) {
+            caIdDetectado = matchComPrefixo[1];
+        } else {
+            // Tentativa 2: Busca por qualquer número isolado de EXATAMENTE 12 dígitos (evita o S/N de 15 dígitos)
+            const regexIsolado = /\b\d{12}\b/;
+            const matchIsolado = textoDetectado.match(regexIsolado);
+            if (matchIsolado) {
+                caIdDetectado = matchIsolado[0];
+            }
+        }
         
-        if (matches && matches.length > 0) {
-            const caIdDetectado = matches[0];
+        if (caIdDetectado) {
             inputCaId.value = caIdDetectado;
             geoInfo.innerHTML = `📍 Lat: ${localizacaoAtual?.latitude || 'N/A'} | Lon: ${localizacaoAtual?.longitude || 'N/A'}<br>🏠 ${enderecoAtual}<br><span style="color:#22c55e; font-weight:bold;">✔ CA ID IDENTIFICADO: ${caIdDetectado}</span>`;
         } else {
