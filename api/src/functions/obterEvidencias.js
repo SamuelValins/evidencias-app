@@ -41,13 +41,14 @@ app.http('obterEvidencias', {
             for await (const entity of listResults) {
                 evidencias.push({
                     contrato: entity.contrato,
+                    codigoBaixa: entity.codigoBaixa || 'N/A', // Mapeamento do Código de Baixa adicionado
                     cidade: entity.cidade,
                     tecnico: entity.tecnico,
                     empresa: entity.empresa,
                     servico: entity.servico || 'N/A', 
                     janela: entity.janela || 'N/A',   
-                    observacao: entity.observacao || '', // Recupera o campo observação do Azure
-                    caId: entity.caId || '',             // Recupera o campo caId do Azure
+                    observacao: entity.observacao || '', 
+                    caId: entity.caId || '',             
                     latitude: entity.latitude,
                     longitude: entity.longitude,
                     endereco: entity.endereco,
