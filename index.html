@@ -266,12 +266,6 @@ button{
 <label>Contrato</label>
 <input id="input-contrato" placeholder="DIGITE O CONTRATO">
 
-<!-- Bloco CA ID (Aparece apenas no modo TOA) -->
-<div id="wrapper-ca-id" style="display:none;">
-    <label>CA ID do Equipamento (12 dígitos)</label>
-    <input id="input-ca-id" inputmode="numeric" pattern="[0-9]*" maxlength="12" placeholder="CA ID IDENTIFICADO OU DIGITADO">
-</div>
-
 <!-- Bloco Código de Baixa (Pode ser ocultado) -->
 <div id="wrapper-codigo-baixa">
     <label>Código de Baixa</label>
@@ -298,6 +292,13 @@ button{
 
 <!-- Botões de Ação -->
 <button id="btn-tirar-foto" class="btn-primary">FOTO DA RESIDÊNCIA</button>
+
+<!-- Bloco CA ID (Fica abaixo do botão de foto e inicia oculto) -->
+<div id="wrapper-ca-id" style="display:none; margin-top: 15px; margin-bottom: 5px;">
+    <label>CA ID do Equipamento (12 dígitos)</label>
+    <input id="input-ca-id" inputmode="numeric" pattern="[0-9]*" maxlength="12" placeholder="DIGITE OU CORRIJA OS 12 DÍGITOS">
+</div>
+
 <button id="btn-galeria" class="btn-secondary">PRINT LIGAÇÃO PARA O CLIENTE</button>
 
 <!-- Área de visualização do resultado -->
@@ -513,7 +514,9 @@ function alternarModo(modo) {
         wrapperCodigoBaixa.style.display = 'none';
         wrapperJanela.style.display = 'none'; 
         btnGaleria.style.display = 'none';    
-        wrapperCaId.style.display = 'block';  
+        
+        // Inicia oculto até que a foto seja processada
+        wrapperCaId.style.display = 'none';  
         
         inputCodigoBaixa.value = ""; 
         selectJanela.value = ""; 
@@ -689,14 +692,19 @@ async function analisarImagemOCR(base64Src) {
             }
         }
         
+        // Torna o campo visível para validação ou digitação manual
+        wrapperCaId.style.display = 'block';
+        
         if (caIdDetectado) {
             inputCaId.value = caIdDetectado;
             geoInfo.innerHTML = `📍 Lat: ${localizacaoAtual?.latitude || 'N/A'} | Lon: ${localizacaoAtual?.longitude || 'N/A'}<br>🏠 ${enderecoAtual}<br><span style="color:#22c55e; font-weight:bold;">✔ CA ID IDENTIFICADO: ${caIdDetectado}</span>`;
         } else {
+            inputCaId.value = "";
             geoInfo.innerHTML = `📍 Lat: ${localizacaoAtual?.latitude || 'N/A'} | Lon: ${localizacaoAtual?.longitude || 'N/A'}<br>🏠 ${enderecoAtual}<br><span style="color:#f59e0b;">⚠️ CA ID não encontrado na imagem. Digite os 12 dígitos manualmente.</span>`;
         }
     } catch (error) {
         console.error("Erro na leitura OCR:", error);
+        wrapperCaId.style.display = 'block';
     }
     validarEstadoFormulario();
 }
