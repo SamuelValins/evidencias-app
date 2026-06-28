@@ -18,10 +18,23 @@ app.http('salvarEvidencia', {
 
             const body = await request.json();
             
-            // Extraindo "codigoBaixa" e o novo campo "observacao" do pacote recebido
-            const { contrato, codigoBaixa, cidade, tecnico, empresa, servico, janela, localizacao, endereco, imagens, observacao } = body;
+            // Extraindo os dados recebidos, incluindo observacao e caId
+            const { 
+                contrato, 
+                codigoBaixa, 
+                cidade, 
+                tecnico, 
+                empresa, 
+                servico, 
+                janela, 
+                localizacao, 
+                endereco, 
+                imagens, 
+                observacao,
+                caId 
+            } = body;
 
-            // Validação de dados essenciais (observacao não entra no IF de erro pois é opcional)
+            // Validação de dados essenciais
             if (!contrato || !codigoBaixa || !cidade || !tecnico || !empresa || !servico || !janela || !imagens || imagens.length === 0) {
                 return { status: 400, jsonBody: { error: 'Dados incompletos fornecidos no formulário.' } };
             }
@@ -70,6 +83,7 @@ app.http('salvarEvidencia', {
                 servico: servico,  
                 janela: janela,    
                 observacao: observacao || '', // Salvando o campo observação (vazio se não fornecido)
+                caId: caId || '',             // Salvando o campo caId (vazio se não fornecido)
                 latitude: localizacao ? parseFloat(localizacao.latitude) : 0,
                 longitude: localizacao ? parseFloat(localizacao.longitude) : 0,
                 endereco: endereco || 'Não disponível',
