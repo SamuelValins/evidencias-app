@@ -352,12 +352,11 @@ body{
 
     <div class="dashboard-layout">
         
-        <!-- Coluna Esquerda: Ranking e Métricas de Re-visita (Atualizado) -->
+        <!-- Coluna Esquerda: Ranking e Métricas de Re-visita -->
         <div class="sidebar-left">
             <h3>🏢 Recorrência</h3>
             <p>Métricas de Re-visitas (dias diferentes):</p>
             
-            <!-- Novos Contadores Consolidados da Barra Lateral -->
             <div style="background: #0f172a; border: 1px solid #334155; padding: 12px; border-radius: 8px; margin-bottom: 15px; font-size: 13px;">
                 <div>📋 Total Contratos: <strong id="total-contratos-unicos" style="color: #38bdf8;">0</strong></div>
                 <div style="margin-top: 6px;">🔄 Contratos Re-visitas: <strong id="total-contratos-revisitas" style="color: #f59e0b;">0</strong></div>
@@ -432,9 +431,8 @@ body{
 
 <script>
 let todasEvidencias = [];
-let contratosAgrupadosGlobal = {}; // Armazena o agrupamento atual na memória para paginação rápida
+let contratosAgrupadosGlobal = {};
 
-// Variáveis de Controle de Paginação (Novas)
 let paginaAtual = 1;
 const itensPorPagina = 10;
 
@@ -502,7 +500,6 @@ async function carregarDados(token) {
         
         todasEvidencias = await response.json();
         
-        // Corrige datas nulas se houver
         todasEvidencias.forEach(item => {
             if (!item.dataHora) item.dataHora = new Date().toISOString();
         });
@@ -550,16 +547,14 @@ function popularOpcoesFiltro() {
     });
 }
 
-// --- FUNÇÃO AUXILIAR: CALCULAR QUANTIDADE DE DIAS ÚNICOS QUE UM CONTRATO FOI VISITADO ---
 function obterDiasUnicosDoContrato(ocorrencias) {
     const dias = ocorrencias.map(item => {
         if (!item.dataHora) return null;
-        return item.dataHora.split('T')[0]; // Pega a parte "AAAA-MM-DD"
+        return item.dataHora.split('T')[0];
     }).filter(Boolean);
-    return [...new Set(dias)]; // Remove datas duplicadas
+    return [...new Set(dias)];
 }
 
-// --- PROCESSAR E EXIBIR O RANKING DE EMPRESAS RECORRENTES (DIAS DIFERENTES) ---
 function processarRankingLateral(dadosFiltrados) {
     const mapaEmpresas = {};
 
@@ -577,7 +572,6 @@ function processarRankingLateral(dadosFiltrados) {
         let totalContratosRevisitas = 0;
         
         Object.entries(contratosObj).forEach(([contNum, visitas]) => {
-            // REGRA: Só é re-visita se foi preenchido em DIAS DIFERENTES
             const diasUnicos = obterDiasUnicosDoContrato(visitas);
             if (diasUnicos.length > 1) {
                 totalContratosRevisitas++;
@@ -624,7 +618,7 @@ function processarRankingLateral(dadosFiltrados) {
 }
 
 function processarEFiltarDados() {
-    paginaAtual = 1; // Reseta para a primeira página sempre que alterar um filtro
+    paginaAtual = 1;
     
     const dataInicioVal = filtroDataInicio.value;
     const dataFimVal = filtroDataFim.value;
@@ -662,10 +656,8 @@ function processarEFiltarDados() {
     metricLogins.textContent = loginsFiltradas.length;
     metricTotal.textContent = dadosFiltrados.length;
 
-    // Atualiza o ranking dinâmico com base nos filtros da tela
     processarRankingLateral(dadosFiltrados);
 
-    // Agrupamento de contratos
     const contratosAgrupados = {};
     dadosFiltrados.forEach(item => {
         if (!contratosAgrupados[item.contrato]) {
@@ -674,7 +666,6 @@ function processarEFiltarDados() {
         contratosAgrupados[item.contrato].push(item);
     });
 
-    // --- REGRA: CALCULAR TOTAL E RE-VISITAS DO PERÍODO FILTRADO (DIAS DIFERENTES) ---
     const todasChaves = Object.keys(contratosAgrupados);
     let totalContratosRevisitas = 0;
 
@@ -689,7 +680,6 @@ function processarEFiltarDados() {
     totalContratosUnicosEl.textContent = todasChaves.length;
     totalContratosRevisitasEl.textContent = totalContratosRevisitas;
 
-    // Salva na memória global para a paginação ler
     contratosAgrupadosGlobal = contratosAgrupados;
 
     renderizarResultados(contratosAgrupados);
@@ -703,10 +693,8 @@ function renderizarResultados(contratosAgrupados) {
         return;
     }
 
-    // Ordenar do maior número de visitas (total de preenchimentos) para o menor
     chavesContratos.sort((a, b) => contratosAgrupados[b].length - contratosAgrupados[a].length);
 
-    // --- CÁLCULO DE PAGINAÇÃO (MÁXIMO 10 CONTRATOS POR TELA) ---
     const totalPaginas = Math.ceil(chavesContratos.length / itensPorPagina);
     const inicio = (paginaAtual - 1) * itensPorPagina;
     const fim = inicio + itensPorPagina;
@@ -716,8 +704,6 @@ function renderizarResultados(contratosAgrupados) {
 
     chavesPagina.forEach(contrato => {
         const ocorrencias = contratosAgrupados[contrato];
-        
-        // Ordena internamente do preenchimento mais recente para o mais antigo
         ocorrencias.sort((a, b) => new Date(b.dataHora) - new Date(a.dataHora));
 
         const blocoContrato = document.createElement('div');
@@ -746,15 +732,44 @@ function renderizarResultados(contratosAgrupados) {
                 <div class="evidencia-location">
                     📍 <strong>GPS:</strong> Lat ${item.latitude || 'N/A'}, Lon ${item.longitude || 'N/A'}<br>
                     🏠 <strong>Endereço:</strong> ${item.endereco || 'Não disponível'}
+                    ${item.observacao ? `<br>💬 <strong>Observação:</strong> <span style="color:#cbd5e1;">${item.observacao}</span>` : ''}
                 </div>
             `;
 
             if (item.urlsFotos && item.urlsFotos.length > 0) {
-                htmlEvidencia += `<div class="evidencia-gallery">`;
-                item.urlsFotos.forEach(url => {
-                    htmlEvidencia += `<img src="${url}" class="evidencia-img" onclick="window.open('${url}', '_blank')">`;
-                });
-                htmlEvidencia += `</div>`;
+                const isForaToa = (item.servico === 'FORA TOA');
+
+                if (isForaToa) {
+                    // Divide a string com CA IDs sequenciais (enviados como "ID1 | ID2")
+                    const caIdsArray = item.caId ? item.caId.split(' | ') : [];
+
+                    htmlEvidencia += `
+                        <div style="font-weight: bold; margin-top: 15px; color: #22c55e; font-size: 13px; text-transform: uppercase;">🚫 Equipamentos Retirados (Etiquetas):</div>
+                        <div class="evidencia-gallery" style="grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 15px; margin-top: 5px;">
+                    `;
+
+                    item.urlsFotos.forEach((url, idx) => {
+                        const caIdText = caIdsArray[idx] || 'NÃO DETECTADO';
+                        htmlEvidencia += `
+                            <div style="background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 8px; display: flex; flex-direction: column; align-items: center; gap: 4px;">
+                                <img src="${url}" class="evidencia-img" onclick="window.open('${url}', '_blank')" style="width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 6px;">
+                                <span style="font-size: 11px; font-weight: bold; color: #38bdf8; text-align: center; margin-top: 4px; word-break: break-all;">📟 CA ID: ${caIdText}</span>
+                            </div>
+                        `;
+                    });
+
+                    htmlEvidencia += `</div>`;
+                } else {
+                    // Estrutura tradicional de Evidência da Visita
+                    htmlEvidencia += `
+                        <div style="font-weight: bold; margin-top: 15px; color: #38bdf8; font-size: 13px; text-transform: uppercase;">🏠 Evidências da Visita:</div>
+                        <div class="evidencia-gallery">
+                    `;
+                    item.urlsFotos.forEach(url => {
+                        htmlEvidencia += `<img src="${url}" class="evidencia-img" onclick="window.open('${url}', '_blank')">`;
+                    });
+                    htmlEvidencia += `</div>`;
+                }
             } else {
                 htmlEvidencia += `<div style="font-size: 12px; color:#ef4444; margin-top:5px;">⚠️ Nenhuma imagem anexada.</div>`;
             }
@@ -766,12 +781,10 @@ function renderizarResultados(contratosAgrupados) {
         resultadosContainer.appendChild(blocoContrato);
     });
 
-    // --- GERAR CONTROLES VISUAIS DE PAGINAÇÃO ---
     if (totalPaginas > 1) {
         const pagDiv = document.createElement('div');
         pagDiv.className = 'pagination-controls';
 
-        // Botão Anterior
         const btnPrev = document.createElement('button');
         btnPrev.className = 'btn-page';
         btnPrev.disabled = (paginaAtual === 1);
@@ -785,13 +798,11 @@ function renderizarResultados(contratosAgrupados) {
         });
         pagDiv.appendChild(btnPrev);
 
-        // Texto de Informação de Página
         const spanInfo = document.createElement('span');
         spanInfo.className = 'page-info';
         spanInfo.textContent = `Página ${paginaAtual} de ${totalPaginas}`;
         pagDiv.appendChild(spanInfo);
 
-        // Botão Próximo
         const btnNext = document.createElement('button');
         btnNext.className = 'btn-page';
         btnNext.disabled = (paginaAtual === totalPaginas);
