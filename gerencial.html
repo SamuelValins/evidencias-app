@@ -391,6 +391,7 @@ body{
             <div class="filter-card">
                 <h3>Filtros de Pesquisa</h3>
                 <div class="filter-grid">
+                    <div class="filter-grid">
                     <div class="filter-group">
                         <label>Data Início (Calendário)</label>
                         <input type="date" id="filtro-data-inicio">
@@ -741,19 +742,47 @@ function renderizarResultados(contratosAgrupados) {
                 const isForaToa = (item.servico === 'FORA TOA');
 
                 if (isForaToa) {
-                    const caIdsArray = item.caId ? item.caId.split(' | ') : [];
+                    let caIdsArray = [];
+                    let mtaArray = [];
+                    let wanArray = [];
+                    let cmArray = [];
+
+                    // Analisador inteligente com fallback caso o formato de salvamento seja texto bruto antigo
+                    if (item.caId) {
+                        try {
+                            const parsed = JSON.parse(item.caId);
+                            if (Array.isArray(parsed)) {
+                                parsed.forEach(e => {
+                                    caIdsArray.push(e.caId || '');
+                                    mtaArray.push(e.mtaMac || '');
+                                    wanArray.push(e.wanMac || '');
+                                    cmArray.push(e.cmMac || '');
+                                });
+                            }
+                        } catch (err) {
+                            // Suporte a compatibilidade reversa para registros em texto puro antigo
+                            caIdsArray = item.caId.split(' | ');
+                        }
+                    }
 
                     htmlEvidencia += `
-                        <div style="font-weight: bold; margin-top: 15px; color: #22c55e; font-size: 13px; text-transform: uppercase;">🚫 Equipamentos Retirados (Etiquetas):</div>
+                        <div style="font-weight: bold; margin-top: 15px; color: #22c55e; font-size: 13px; text-transform: uppercase;">🚫 Equipamentos Retirados:</div>
                         <div class="evidencia-gallery" style="grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 15px; margin-top: 5px;">
                     `;
 
                     item.urlsFotos.forEach((url, idx) => {
-                        const caIdText = caIdsArray[idx] || 'NÃO DETECTADO';
+                        const caIdText = caIdsArray[idx] || 'NÃO ENCONTRADO';
+                        const mtaText = mtaArray[idx] || '';
+                        const wanText = wanArray[idx] || '';
+                        const cmText = cmArray[idx] || '';
+
                         htmlEvidencia += `
                             <div style="background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 8px; display: flex; flex-direction: column; align-items: center; gap: 4px;">
                                 <img src="${url}" class="evidencia-img" onclick="window.open('${url}', '_blank')" style="width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 6px;">
                                 <span style="font-size: 11px; font-weight: bold; color: #38bdf8; text-align: center; margin-top: 4px; word-break: break-all;">📟 CA ID: ${caIdText}</span>
+                                ${mtaText ? `<span style="font-size: 9px; color: #cbd5e1; text-align: center; word-break: break-all;">🔌 MTA: ${mtaText}</span>` : ''}
+                                ${wanText ? `<span style="font-size: 9px; color: #cbd5e1; text-align: center; word-break: break-all;">🌐 WAN: ${wanText}</span>` : ''}
+                                ${cmText ? `<span style="font-size: 9px; color: #cbd5e1; text-align: center; word-break: break-all;">📡 CM: ${cmText}</span>` : ''}
                             </div>
                         `;
                     });
