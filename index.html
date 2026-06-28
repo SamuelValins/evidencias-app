@@ -125,6 +125,14 @@ input:disabled, select:disabled, textarea:disabled {
     cursor: not-allowed;
 }
 
+/* Estilo para inputs de leitura */
+input[readonly] {
+    background: #1e293b;
+    border-color: #334155;
+    color: #94a3b8;
+    cursor: not-allowed;
+}
+
 button{
     color:white;
     padding:14px 20px;
@@ -247,15 +255,14 @@ button{
 <label>Login do Técnico</label>
 <input id="input-tecnico" placeholder="DIGITE SEU LOGIN">
 
-<!-- Nome da Empresa -->
-<label>Nome da Empresa</label>
-<input id="input-empresa" list="lista-empresas" placeholder="SELECIONE OU DIGITE A EMPRESA">
-<datalist id="lista-empresas"></datalist>
-
 <!-- Cidade Autocomplete -->
 <label>Cidade</label>
-<input id="input-cidade" list="lista-cidades" placeholder="SELECIONE A CIDADE (ESCOLHA A EMPRESA ANTES)" disabled>
+<input id="input-cidade" list="lista-cidades" placeholder="SELECIONE A CIDADE">
 <datalist id="lista-cidades"></datalist>
+
+<!-- Nome da Empresa (Preenchido Automaticamente / Somente Leitura) -->
+<label>Nome da Empresa</label>
+<input id="input-empresa" placeholder="SELECIONE A CIDADE PARA PREENCHER" readonly>
 
 <!-- Contrato -->
 <label>Contrato</label>
@@ -375,9 +382,6 @@ const dadosMapeamento = [
     {c:"JAGUARIUNA", e:"NEW TIME"},
     {c:"JALES", e:"CANTOIA DDD17"},
     {c:"JARDINOPOLIS", e:"BASIC DDD16/17"},
-    {c:"JAGUARIUNA", e:"NEW TIME"},
-    {c:"JALES", e:"CANTOIA DDD17"},
-    {c:"JARDINOPOLIS", e:"BASIC DDD16/17"},
     {c:"JAU", e:"BASIC DDD14"},
     {c:"JOSE BONIFACIO", e:"CANTOIA DDD17"},
     {c:"LARANJAL PAULISTA", e:"TEMPO"},
@@ -482,7 +486,6 @@ const tituloPagina = document.getElementById('titulo-pagina');
 
 const selectJanela = document.getElementById('select-janela');
 
-const listaEmpresasDatalist = document.getElementById('lista-empresas');
 const listaCidadesDatalist = document.getElementById('lista-cidades');
 
 let listaImagens = [];
@@ -530,65 +533,53 @@ function alternarModo(modo) {
 btnModoEvidencia.addEventListener('click', () => alternarModo('evidencia'));
 btnModoToa.addEventListener('click', () => alternarModo('toa'));
 
-// --- POPULAR DATALIST DE EMPRESAS NO INÍCIO ---
-const empresasUnicas = [...new Set(dadosMapeamento.map(item => item.e))].sort();
-empresasUnicas.forEach(emp => {
+// --- POPULAR DATALIST DE CIDADES NO INÍCIO ---
+const cidadesUnicas = [...new Set(dadosMapeamento.map(item => item.c))].sort();
+cidadesUnicas.forEach(cid => {
     const opt = document.createElement('option');
-    opt.value = emp;
-    listaEmpresasDatalist.appendChild(opt);
+    opt.value = cid;
+    listaCidadesDatalist.appendChild(opt);
 });
 
-// --- FUNÇÃO PARA ATUALIZAR AS CIDADES BASEADO NA EMPRESA SELECIONADA ---
-function atualizarCidadesDaEmpresa(empresaNome) {
-    listaCidadesDatalist.innerHTML = '';
-    
-    if (!empresaNome) {
-        inputCidade.disabled = true;
-        inputCidade.value = '';
+// --- FUNÇÃO PARA ATUALIZAR A EMPRESA BASEADO NA CIDADE SELECIONADA ---
+function atualizarEmpresaPelaCidade(cidadeNome) {
+    if (!cidadeNome) {
+        inputEmpresa.value = '';
+        localStorage.removeItem('nome_cidade');
+        localStorage.removeItem('nome_empresa');
+        validarEstadoFormulario();
         return;
     }
 
-    const cidadesFiltradas = dadosMapeamento
-        .filter(item => item.e === empresaNome)
-        .map(item => item.c)
-        .sort();
+    const correspondencia = dadosMapeamento.find(item => item.c === cidadeNome);
 
-    if (cidadesFiltradas.length > 0) {
-        cidadesFiltradas.forEach(cid => {
-            const opt = document.createElement('option');
-            opt.value = cid;
-            listaCidadesDatalist.appendChild(opt);
-        });
-        inputCidade.disabled = false;
+    if (correspondencia) {
+        inputEmpresa.value = correspondencia.e;
+        localStorage.setItem('nome_cidade', cidadeNome);
+        localStorage.setItem('nome_empresa', correspondencia.e);
     } else {
-        inputCidade.disabled = true;
-        inputCidade.value = '';
+        inputEmpresa.value = '';
+        localStorage.removeItem('nome_cidade');
+        localStorage.removeItem('nome_empresa');
     }
+    validarEstadoFormulario();
 }
 
 // --- CARREGAR CACHE DO NAVEGADOR (LocalStorage) ---
 const tecnicoCache = localStorage.getItem('login_tecnico') || '';
-const empresaCache = localStorage.getItem('nome_empresa') || '';
 const cityCache = localStorage.getItem('nome_cidade') || '';
 
 inputTecnico.value = tecnicoCache.toUpperCase();
-inputEmpresa.value = empresaCache.toUpperCase();
 
-// Se já houver empresa em cache, inicializa as cidades dela e resgata a cidade salva
-if (empresasUnicas.includes(inputEmpresa.value)) {
-    atualizarCidadesDaEmpresa(inputEmpresa.value);
-    
-    // Valida se a cidade do cache realmente pertence à empresa do cache
-    const cidadesValidas = dadosMapeamento
-        .filter(item => item.e === inputEmpresa.value)
-        .map(item => item.c);
-
-    if (cidadesValidas.includes(cityCache.toUpperCase())) {
-        inputCidade.value = cityCache.toUpperCase();
-    } else {
-        inputCidade.value = '';
-        localStorage.removeItem('nome_cidade');
-    }
+// Se houver cidade em cache, valida e carrega a empresa vinculada
+if (cidadesUnicas.includes(cityCache.toUpperCase())) {
+    inputCidade.value = cityCache.toUpperCase();
+    atualizarEmpresaPelaCidade(cityCache.toUpperCase());
+} else {
+    inputCidade.value = '';
+    inputEmpresa.value = '';
+    localStorage.removeItem('nome_cidade');
+    localStorage.removeItem('nome_empresa');
 }
 
 // CARREGAR ESTADO DA ABA/MODO (Padrão: Evidência)
@@ -603,37 +594,10 @@ inputTecnico.addEventListener('input', (e) => {
     validarEstadoFormulario();
 });
 
-inputEmpresa.addEventListener('input', (e) => {
-    const val = e.target.value.toUpperCase();
-    e.target.value = val;
-    localStorage.setItem('nome_empresa', val);
-    
-    if (empresasUnicas.includes(val)) {
-        atualizarCidadesDaEmpresa(val);
-        inputCidade.value = '';
-        localStorage.removeItem('nome_cidade');
-    } else {
-        atualizarCidadesDaEmpresa('');
-        inputCidade.value = '';
-        localStorage.removeItem('nome_cidade');
-    }
-    validarEstadoFormulario();
-});
-
 inputCidade.addEventListener('input', (e) => {
     const val = e.target.value.toUpperCase();
     e.target.value = val;
-    
-    const cidadesValidas = dadosMapeamento
-        .filter(item => item.e === inputEmpresa.value)
-        .map(item => item.c);
-
-    if (cidadesValidas.includes(val)) {
-        localStorage.setItem('nome_cidade', val);
-    } else {
-        localStorage.removeItem('nome_cidade');
-    }
-    validarEstadoFormulario();
+    atualizarEmpresaPelaCidade(val);
 });
 
 inputContrato.addEventListener('input', (e) => {
@@ -1026,12 +990,6 @@ btnSalvar.addEventListener('click', async () => {
             enderecoAtual = "Não disponível";
             previewGrid.innerHTML = "";
             geoInfo.style.display = 'none';
-            
-            if (empresasUnicas.includes(inputEmpresa.value)) {
-                atualizarCidadesDaEmpresa(inputEmpresa.value);
-            } else {
-                atualizarCidadesDaEmpresa('');
-            }
             
             // Retorna o aplicativo para o modo normal (Evidência) após gravação bem sucedida
             alternarModo('evidencia');
