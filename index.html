@@ -193,19 +193,12 @@ button{
     margin-top: 20px;
 }
 
+/* Alterado para dispor os itens em 2 colunas devido ao input acoplado */
 .preview-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 10px;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
     margin-top: 10px;
-}
-
-.thumb-preview {
-    width: 100%;
-    aspect-ratio: 1;
-    object-fit: cover;
-    border-radius: 8px;
-    border: 2px solid #334155;
 }
 
 .geo-badge {
@@ -292,13 +285,6 @@ button{
 
 <!-- Botões de Ação -->
 <button id="btn-tirar-foto" class="btn-primary">FOTO DA RESIDÊNCIA</button>
-
-<!-- Bloco CA ID (Fica abaixo do botão de foto e inicia oculto) -->
-<div id="wrapper-ca-id" style="display:none; margin-top: 15px; margin-bottom: 5px;">
-    <label>CA ID do Equipamento (12 dígitos)</label>
-    <input id="input-ca-id" inputmode="numeric" pattern="[0-9]*" maxlength="12" placeholder="DIGITE OU CORRIJA OS 12 DÍGITOS">
-</div>
-
 <button id="btn-galeria" class="btn-secondary">PRINT LIGAÇÃO PARA O CLIENTE</button>
 
 <!-- Área de visualização do resultado -->
@@ -482,8 +468,6 @@ const inputTecnico = document.getElementById('input-tecnico');
 const inputEmpresa = document.getElementById('input-empresa');
 const inputCidade = document.getElementById('input-cidade');
 const inputContrato = document.getElementById('input-contrato');
-const inputCaId = document.getElementById('input-ca-id');
-const wrapperCaId = document.getElementById('wrapper-ca-id');
 const inputCodigoBaixa = document.getElementById('input-codigo-baixa');
 const wrapperCodigoBaixa = document.getElementById('wrapper-codigo-baixa');
 const wrapperJanela = document.getElementById('wrapper-janela');
@@ -493,7 +477,9 @@ const tituloPagina = document.getElementById('titulo-pagina');
 const selectJanela = document.getElementById('select-janela');
 const listaCidadesDatalist = document.getElementById('lista-cidades');
 
-let listaImagens = [];
+// Estrutura unificada para agrupar fotos e seus respectivos CA IDs
+let listaEquipamentos = []; 
+
 let localizacaoAtual = null;
 let enderecoAtual = "Não disponível";
 let modoRetiradoForaToa = false;
@@ -515,9 +501,6 @@ function alternarModo(modo) {
         wrapperJanela.style.display = 'none'; 
         btnGaleria.style.display = 'none';    
         
-        // Inicia oculto até que a foto seja processada
-        wrapperCaId.style.display = 'none';  
-        
         inputCodigoBaixa.value = ""; 
         selectJanela.value = ""; 
     } else {
@@ -533,10 +516,8 @@ function alternarModo(modo) {
         wrapperCodigoBaixa.style.display = 'block';
         wrapperJanela.style.display = 'block'; 
         btnGaleria.style.display = 'block';    
-        wrapperCaId.style.display = 'none';    
-        
-        inputCaId.value = "";
     }
+    renderizarGradePreviews();
     validarEstadoFormulario();
 }
 
@@ -614,12 +595,6 @@ inputContrato.addEventListener('input', (e) => {
     validarEstadoFormulario();
 });
 
-inputCaId.addEventListener('input', (e) => {
-    const val = e.target.value.replace(/\D/g, '');
-    e.target.value = val.substring(0, 12);
-    validarEstadoFormulario();
-});
-
 inputCodigoBaixa.addEventListener('input', (e) => {
     const val = e.target.value.replace(/\D/g, '');
     e.target.value = val;
@@ -634,6 +609,89 @@ inputObservacao.addEventListener('input', (e) => {
     e.target.value = e.target.value.toUpperCase();
 });
 
+// --- RENDERIZAR FOTOS COM CAMPOS DINÂMICOS DE CA ID ---
+function renderizarGradePreviews() {
+    previewGrid.innerHTML = '';
+    
+    listaEquipamentos.forEach((equip, index) => {
+        const itemDiv = document.createElement('div');
+        itemDiv.style.position = 'relative';
+        itemDiv.style.background = '#1e293b';
+        itemDiv.style.border = '1px solid #334155';
+        itemDiv.style.borderRadius = '8px';
+        itemDiv.style.padding = '8px';
+        itemDiv.style.display = 'flex';
+        itemDiv.style.flexDirection = 'column';
+        itemDiv.style.gap = '5px';
+
+        // Elemento da Imagem
+        const img = document.createElement('img');
+        img.src = equip.base64;
+        img.className = 'thumb-preview';
+        img.style.width = '100%';
+        img.style.aspectRatio = '1';
+        img.style.objectFit = 'cover';
+        img.style.borderRadius = '6px';
+        img.style.border = 'none';
+        itemDiv.appendChild(img);
+
+        // Se estiver no modo TOA, anexa o input do CA ID logo abaixo da foto correspondente
+        if (modoRetiradoForaToa) {
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.inputMode = 'numeric';
+            input.pattern = '[0-9]*';
+            input.maxLength = 12;
+            input.value = equip.caId || '';
+            input.placeholder = 'DIGITE O CA ID';
+            input.style.width = '100%';
+            input.style.padding = '6px';
+            input.style.fontSize = '12px';
+            input.style.textAlign = 'center';
+            input.style.marginTop = '2px';
+            input.style.boxSizing = 'border-box';
+            
+            input.addEventListener('input', (e) => {
+                const val = e.target.value.replace(/\D/g, '').substring(0, 12);
+                e.target.value = val;
+                listaEquipamentos[index].caId = val;
+                validarEstadoFormulario();
+            });
+            itemDiv.appendChild(input);
+        }
+
+        // Botão de Excluir Foto (✕ no canto do card)
+        const btnDelete = document.createElement('button');
+        btnDelete.innerHTML = '✕';
+        btnDelete.style.position = 'absolute';
+        btnDelete.style.top = '4px';
+        btnDelete.style.right = '4px';
+        btnDelete.style.background = '#ef4444';
+        btnDelete.style.color = 'white';
+        btnDelete.style.border = 'none';
+        btnDelete.style.borderRadius = '50%';
+        btnDelete.style.width = '20px';
+        btnDelete.style.height = '20px';
+        btnDelete.style.fontSize = '12px';
+        btnDelete.style.cursor = 'pointer';
+        btnDelete.style.display = 'flex';
+        btnDelete.style.alignItems = 'center';
+        btnDelete.style.justifyContent = 'center';
+        btnDelete.style.fontWeight = 'bold';
+        btnDelete.style.padding = '0';
+        
+        btnDelete.addEventListener('click', (e) => {
+            e.preventDefault();
+            listaEquipamentos.splice(index, 1);
+            renderizarGradePreviews();
+            validarEstadoFormulario();
+        });
+        itemDiv.appendChild(btnDelete);
+
+        previewGrid.appendChild(itemDiv);
+    });
+}
+
 // --- CONTROLE DE VALIDAÇÃO DO FORMULÁRIO ---
 function validarEstadoFormulario() {
     const contrato = inputContrato.value.trim();
@@ -642,8 +700,8 @@ function validarEstadoFormulario() {
     const tecnico = inputTecnico.value.trim();
     const empresa = inputEmpresa.value.trim();
     const janela = selectJanela.value;
-    const caId = inputCaId.value.trim();
-    const temImagens = listaImagens.length > 0;
+    
+    const temImagens = listaEquipamentos.length > 0;
     const temGps = localizacaoAtual !== null;
 
     if (temImagens && !temGps) {
@@ -654,17 +712,21 @@ function validarEstadoFormulario() {
 
     const codigoBaixaValido = modoRetiradoForaToa ? true : !!codigoBaixa;
     const janelaValida = modoRetiradoForaToa ? true : !!janela;
-    const caIdValido = modoRetiradoForaToa ? (caId.length === 12) : true;
+    
+    // Todos os CA IDs das imagens carregadas no modo TOA devem ter exatamente 12 dígitos
+    const caIdsValidos = modoRetiradoForaToa 
+        ? listaEquipamentos.every(equip => equip.caId && equip.caId.length === 12)
+        : true;
 
-    if (contrato && codigoBaixaValido && cidade && tecnico && empresa && janelaValida && caIdValido && temImagens && temGps) {
+    if (contrato && codigoBaixaValido && cidade && tecnico && empresa && janelaValida && caIdsValidos && temImagens && temGps) {
         btnSalvar.disabled = false;
     } else {
         btnSalvar.disabled = true;
     }
 }
 
-// --- RECONHECIMENTO ÓPTICO DE CARACTERES (OCR - TESSERACT CORRIGIDO) ---
-async function analisarImagemOCR(base64Src) {
+// --- RECONHECIMENTO ÓPTICO DE CARACTERES (OCR - SEQUENCIAL POR EQUIPAMENTO) ---
+async function analisarImagemOCR(base64Src, targetEquip) {
     if (!modoRetiradoForaToa) return; 
     
     geoInfo.style.display = 'block';
@@ -675,16 +737,16 @@ async function analisarImagemOCR(base64Src) {
         const textoDetectado = result.data.text;
         console.log("Texto detectado pelo OCR:", textoDetectado);
         
-        let caIdDetectado = null;
+        let caIdDetectado = "";
 
-        // Tentativa 1: Busca baseada no prefixo "CA ID" (e variações de leitura)
+        // Tentativa 1: Busca pelo prefixo "CA ID"
         const regexComPrefixo = /(?:ca\s*id|caid|c4\s*id|ga\s*id|ca\s*1d|cald)[\s\:\-\.\=]*(\d{12})/i;
         const matchComPrefixo = textoDetectado.match(regexComPrefixo);
 
         if (matchComPrefixo) {
             caIdDetectado = matchComPrefixo[1];
         } else {
-            // Tentativa 2: Busca por qualquer número isolado de EXATAMENTE 12 dígitos (evita o S/N de 15 dígitos)
+            // Tentativa 2: Busca por sequência exata de 12 dígitos
             const regexIsolado = /\b\d{12}\b/;
             const matchIsolado = textoDetectado.match(regexIsolado);
             if (matchIsolado) {
@@ -692,19 +754,16 @@ async function analisarImagemOCR(base64Src) {
             }
         }
         
-        // Torna o campo visível para validação ou digitação manual
-        wrapperCaId.style.display = 'block';
+        targetEquip.caId = caIdDetectado;
+        renderizarGradePreviews();
         
         if (caIdDetectado) {
-            inputCaId.value = caIdDetectado;
             geoInfo.innerHTML = `📍 Lat: ${localizacaoAtual?.latitude || 'N/A'} | Lon: ${localizacaoAtual?.longitude || 'N/A'}<br>🏠 ${enderecoAtual}<br><span style="color:#22c55e; font-weight:bold;">✔ CA ID IDENTIFICADO: ${caIdDetectado}</span>`;
         } else {
-            inputCaId.value = "";
-            geoInfo.innerHTML = `📍 Lat: ${localizacaoAtual?.latitude || 'N/A'} | Lon: ${localizacaoAtual?.longitude || 'N/A'}<br>🏠 ${enderecoAtual}<br><span style="color:#f59e0b;">⚠️ CA ID não encontrado na imagem. Digite os 12 dígitos manualmente.</span>`;
+            geoInfo.innerHTML = `📍 Lat: ${localizacaoAtual?.latitude || 'N/A'} | Lon: ${localizacaoAtual?.longitude || 'N/A'}<br>🏠 ${enderecoAtual}<br><span style="color:#f59e0b;">⚠️ CA ID não encontrado na imagem. Digite os 12 dígitos abaixo da foto correspondente.</span>`;
         }
     } catch (error) {
         console.error("Erro na leitura OCR:", error);
-        wrapperCaId.style.display = 'block';
     }
     validarEstadoFormulario();
 }
@@ -790,13 +849,16 @@ btnAtualizarGps.addEventListener('click', () => {
                 btnAtualizarGps.disabled = false;
                 btnAtualizarGps.textContent = "⚠️ ATUALIZAR GEOLOCALIZAÇÃO";
                 
-                const fotosOriginais = [...listaImagens];
-                listaImagens = [];
+                // Reconstrói as fotos estampando a geolocalização atualizada
+                const equipamentosAntigos = [...listaEquipamentos];
+                listaEquipamentos = [];
                 previewGrid.innerHTML = "";
                 
-                for (let foto of fotosOriginais) {
-                    estamparMetadadosNaFoto(foto, (base64Marcado) => {
-                        adicionarImagemNaGrade(base64Marcado);
+                for (let equip of equipamentosAntigos) {
+                    estamparMetadadosNaFoto(equip.base64, (base64Marcado) => {
+                        const novoEquip = { base64: base64Marcado, caId: equip.caId };
+                        listaEquipamentos.push(novoEquip);
+                        renderizarGradePreviews();
                     });
                 }
                 
@@ -866,7 +928,7 @@ function estamparMetadadosNaFoto(base64Src, callback) {
                 linhasEndereco.push(linhaAtual);
                 linhaAtual = inlineWord;
             } else {
-                linhaAtual = inlineWord = linhaAtual + inlineWord;
+                linhaAtual = inlineWord = inlineWord + inlineWord;
             }
         }
         linhasEndereco.push(linhaAtual);
@@ -891,15 +953,19 @@ function estamparMetadadosNaFoto(base64Src, callback) {
     };
 }
 
-function adicionarImagemNaGrade(base64Image) {
-    listaImagens.push(base64Image);
+// --- ADICIONAR EQUIPAMENTO E INICIAR OCR ---
+function adicionarEquipamentoEProcessar(base64Image) {
+    const novoEquipamento = {
+        base64: base64Image,
+        caId: ""
+    };
     
-    const img = document.createElement('img');
-    img.src = base64Image;
-    img.className = 'thumb-preview';
-    previewGrid.appendChild(img);
-    
+    listaEquipamentos.push(novoEquipamento);
+    renderizarGradePreviews();
     validarEstadoFormulario();
+    
+    // Executa a leitura OCR de forma isolada para este novo card
+    analisarImagemOCR(base64Image, novoEquipamento);
 }
 
 // --- CONTROLE DA CÂMERA ---
@@ -930,8 +996,7 @@ cameraInput.addEventListener('change', (event) => {
             }
 
             estamparMetadadosNaFoto(base64Original, (base64Marcado) => {
-                adicionarImagemNaGrade(base64Marcado);
-                analisarImagemOCR(base64Original); 
+                adicionarEquipamentoEProcessar(base64Marcado);
             });
         }
         reader.readAsDataURL(file);
@@ -966,8 +1031,7 @@ galleryInput.addEventListener('change', async (event) => {
             const reader = new FileReader();
             reader.onload = function(e) {
                 estamparMetadadosNaFoto(e.target.result, (base64Marcado) => {
-                    adicionarImagemNaGrade(base64Marcado);
-                    analisarImagemOCR(e.target.result); 
+                    adicionarEquipamentoEProcessar(base64Marcado);
                 });
             }
             reader.readAsDataURL(file);
@@ -985,7 +1049,6 @@ btnSalvar.addEventListener('click', async () => {
     const empresa = inputEmpresa.value.trim();
     const janela = selectJanela.value;
     const observacao = inputObservacao.value.trim();
-    const caId = inputCaId.value.trim();
 
     const codigoBaixaValido = modoRetiradoForaToa ? "FORA TOA" : codigoBaixa;
     const janelaValida = modoRetiradoForaToa ? "FORA TOA" : janela;
@@ -995,7 +1058,7 @@ btnSalvar.addEventListener('click', async () => {
         return;
     }
 
-    if (listaImagens.length === 0 || !localizacaoAtual) {
+    if (listaEquipamentos.length === 0 || !localizacaoAtual) {
         alert("Certifique-se de que possui ao menos uma imagem e a geolocalização capturada.");
         return;
     }
@@ -1011,6 +1074,12 @@ btnSalvar.addEventListener('click', async () => {
         servicoDinamico = "FORA TOA";
     }
 
+    // Separa as imagens e agrupa os CA IDs em uma única string separada por " | "
+    const imagensEnvio = listaEquipamentos.map(e => e.base64);
+    const caIdsEnvio = modoRetiradoForaToa 
+        ? listaEquipamentos.map(e => e.caId).join(' | ') 
+        : null;
+
     const payloadEvidencia = {
         contrato: contrato,
         codigoBaixa: codigoBaixaValido, 
@@ -1021,9 +1090,9 @@ btnSalvar.addEventListener('click', async () => {
         janela: janelaValida,
         localizacao: localizacaoAtual,
         endereco: enderecoAtual,
-        imagens: listaImagens,
+        imagens: imagensEnvio,
         observacao: observacao,
-        caId: modoRetiradoForaToa ? caId : null
+        caId: caIdsEnvio
     };
 
     try {
@@ -1039,16 +1108,15 @@ btnSalvar.addEventListener('click', async () => {
             alertSave.style.display = 'block';
             alertSave.innerHTML = `✅ EVIDÊNCIA GRAVADA NO AZURE COM SUCESSO!<br>
                                    <span style="font-size:12px; font-weight:normal;">
-                                   CONTRATO: ${contrato} | TIPO: ${servicoDinamico} | FOTOS: ${listaImagens.length}
+                                   CONTRATO: ${contrato} | TIPO: ${servicoDinamico} | EQUIPAMENTOS: ${listaEquipamentos.length}
                                    </span>`;
 
             inputContrato.value = "";
             inputCodigoBaixa.value = "";
             inputObservacao.value = "";
             selectJanela.value = "";
-            inputCaId.value = "";
             
-            listaImagens = [];
+            listaEquipamentos = [];
             localizacaoAtual = null;
             enderecoAtual = "Não disponível";
             previewGrid.innerHTML = "";
