@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Aplicativo de Evidências</title>
 
+<!-- Biblioteca OCR Tesseract.js -->
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+
 <style>
 body{
     margin:0;
@@ -42,7 +45,6 @@ body{
     font-weight: bold;
 }
 
-/* Novos estilos para os botões de controle de modo */
 .btn-mode {
     padding: 8px 15px !important;
     font-size: 14px !important;
@@ -125,7 +127,6 @@ input:disabled, select:disabled, textarea:disabled {
     cursor: not-allowed;
 }
 
-/* Estilo para inputs de leitura */
 input[readonly] {
     background: #1e293b;
     border-color: #334155;
@@ -188,7 +189,6 @@ button{
     opacity: 0.6;
 }
 
-/* Área de visualização e grid das fotos */
 .preview-container {
     margin-top: 20px;
 }
@@ -219,7 +219,6 @@ button{
     color: #38bdf8;
 }
 
-/* Alerta de sucesso ou erro */
 .alert-success {
     display: none;
     background: #065f46;
@@ -239,7 +238,6 @@ button{
 <div class="header">
     <span>📷 Aplicativo de Evidências</span>
     <div class="header-actions">
-        <!-- Estrutura de botões de alternância de modo -->
         <button id="btn-modo-evidencia" class="btn-mode btn-mode-evidencia">EVIDÊNCIA 🏠</button>
         <button id="btn-modo-toa" class="btn-mode btn-mode-toa">RETIRADO FORA TOA 🚫</button>
         <a href="/gerencial.html" class="btn-navigation">Painel Gerencial 📊</a>
@@ -260,13 +258,19 @@ button{
 <input id="input-cidade" list="lista-cidades" placeholder="SELECIONE A CIDADE">
 <datalist id="lista-cidades"></datalist>
 
-<!-- Nome da Empresa (Preenchido Automaticamente / Somente Leitura) -->
+<!-- Nome da Empresa (Leitura Dinâmica) -->
 <label>Nome da Empresa</label>
 <input id="input-empresa" placeholder="SELECIONE A CIDADE PARA PREENCHER" readonly>
 
 <!-- Contrato -->
 <label>Contrato</label>
 <input id="input-contrato" placeholder="DIGITE O CONTRATO">
+
+<!-- Bloco CA ID (Aparece apenas no modo TOA) -->
+<div id="wrapper-ca-id" style="display:none;">
+    <label>CA ID do Equipamento (12 dígitos)</label>
+    <input id="input-ca-id" inputmode="numeric" pattern="[0-9]*" maxlength="12" placeholder="CA ID IDENTIFICADO OU DIGITADO">
+</div>
 
 <!-- Bloco Código de Baixa (Pode ser ocultado) -->
 <div id="wrapper-codigo-baixa">
@@ -463,7 +467,6 @@ const btnGaleria = document.getElementById('btn-galeria');
 const btnSalvar = document.getElementById('btn-salvar');
 const btnAtualizarGps = document.getElementById('btn-atualizar-gps');
 
-// Seleção dos novos botões de controle de modo
 const btnModoEvidencia = document.getElementById('btn-modo-evidencia');
 const btnModoToa = document.getElementById('btn-modo-toa');
 
@@ -478,6 +481,8 @@ const inputTecnico = document.getElementById('input-tecnico');
 const inputEmpresa = document.getElementById('input-empresa');
 const inputCidade = document.getElementById('input-cidade');
 const inputContrato = document.getElementById('input-contrato');
+const inputCaId = document.getElementById('input-ca-id');
+const wrapperCaId = document.getElementById('wrapper-ca-id');
 const inputCodigoBaixa = document.getElementById('input-codigo-baixa');
 const wrapperCodigoBaixa = document.getElementById('wrapper-codigo-baixa');
 const wrapperJanela = document.getElementById('wrapper-janela');
@@ -485,14 +490,12 @@ const inputObservacao = document.getElementById('input-observacao');
 const tituloPagina = document.getElementById('titulo-pagina');
 
 const selectJanela = document.getElementById('select-janela');
-
 const listaCidadesDatalist = document.getElementById('lista-cidades');
 
 let listaImagens = [];
 let localizacaoAtual = null;
 let enderecoAtual = "Não disponível";
 let modoRetiradoForaToa = false;
-
 let buscaMetadadosPromise = null;
 
 // --- CONTROLE DE ALTERNÂNCIA DE MODO ---
@@ -508,11 +511,12 @@ function alternarModo(modo) {
         tituloPagina.textContent = "Novo Retirado Fora TOA";
         
         wrapperCodigoBaixa.style.display = 'none';
-        wrapperJanela.style.display = 'none'; // Oculta a janela de horário nesta aba
-        btnGaleria.style.display = 'none';    // Oculta o botão de print de ligação nesta aba
+        wrapperJanela.style.display = 'none'; 
+        btnGaleria.style.display = 'none';    
+        wrapperCaId.style.display = 'block';  
         
         inputCodigoBaixa.value = ""; 
-        selectJanela.value = ""; // Reseta o valor selecionado para evitar inconsistência
+        selectJanela.value = ""; 
     } else {
         modoRetiradoForaToa = false;
         localStorage.setItem('modo_ativo', 'evidencia');
@@ -524,8 +528,11 @@ function alternarModo(modo) {
         tituloPagina.textContent = "Nova Evidência";
         
         wrapperCodigoBaixa.style.display = 'block';
-        wrapperJanela.style.display = 'block'; // Exibe a janela de horário nesta aba
-        btnGaleria.style.display = 'block';    // Mostra o botão de print de ligação nesta aba
+        wrapperJanela.style.display = 'block'; 
+        btnGaleria.style.display = 'block';    
+        wrapperCaId.style.display = 'none';    
+        
+        inputCaId.value = "";
     }
     validarEstadoFormulario();
 }
@@ -541,7 +548,7 @@ cidadesUnicas.forEach(cid => {
     listaCidadesDatalist.appendChild(opt);
 });
 
-// --- FUNÇÃO PARA ATUALIZAR A EMPRESA BASEADO NA CIDADE SELECIONADA ---
+// --- FUNÇÃO PARA ATUALIZAR A EMPRESA BASEADO NA CIDADE ---
 function atualizarEmpresaPelaCidade(cidadeNome) {
     if (!cidadeNome) {
         inputEmpresa.value = '';
@@ -571,7 +578,6 @@ const cityCache = localStorage.getItem('nome_cidade') || '';
 
 inputTecnico.value = tecnicoCache.toUpperCase();
 
-// Se houver cidade em cache, valida e carrega a empresa vinculada
 if (cidadesUnicas.includes(cityCache.toUpperCase())) {
     inputCidade.value = cityCache.toUpperCase();
     atualizarEmpresaPelaCidade(cityCache.toUpperCase());
@@ -582,11 +588,10 @@ if (cidadesUnicas.includes(cityCache.toUpperCase())) {
     localStorage.removeItem('nome_empresa');
 }
 
-// CARREGAR ESTADO DA ABA/MODO (Padrão: Evidência)
 const modoSalvo = localStorage.getItem('modo_ativo') || 'evidencia';
 alternarModo(modoSalvo);
 
-// --- NORMALIZAÇÃO EM MAIÚSCULO E SALVAMENTO DE CACHE ---
+// --- PROCESSAMENTOS DE INPUTS ---
 inputTecnico.addEventListener('input', (e) => {
     const val = e.target.value.toUpperCase();
     e.target.value = val;
@@ -606,6 +611,12 @@ inputContrato.addEventListener('input', (e) => {
     validarEstadoFormulario();
 });
 
+inputCaId.addEventListener('input', (e) => {
+    const val = e.target.value.replace(/\D/g, '');
+    e.target.value = val.substring(0, 12);
+    validarEstadoFormulario();
+});
+
 inputCodigoBaixa.addEventListener('input', (e) => {
     const val = e.target.value.replace(/\D/g, '');
     e.target.value = val;
@@ -620,7 +631,7 @@ inputObservacao.addEventListener('input', (e) => {
     e.target.value = e.target.value.toUpperCase();
 });
 
-// --- FUNÇÃO PARA CONTROLAR A ATIVAÇÃO DO BOTÃO SALVAR ---
+// --- CONTROLE DE VALIDAÇÃO DO FORMULÁRIO ---
 function validarEstadoFormulario() {
     const contrato = inputContrato.value.trim();
     const codigoBaixa = inputCodigoBaixa.value.trim();
@@ -628,6 +639,7 @@ function validarEstadoFormulario() {
     const tecnico = inputTecnico.value.trim();
     const empresa = inputEmpresa.value.trim();
     const janela = selectJanela.value;
+    const caId = inputCaId.value.trim();
     const temImagens = listaImagens.length > 0;
     const temGps = localizacaoAtual !== null;
 
@@ -637,15 +649,42 @@ function validarEstadoFormulario() {
         btnAtualizarGps.style.display = 'none';
     }
 
-    // Código de Baixa e Janela deixam de ser obrigatórios se estiver no modo "Retirado Fora Toa"
     const codigoBaixaValido = modoRetiradoForaToa ? true : !!codigoBaixa;
     const janelaValida = modoRetiradoForaToa ? true : !!janela;
+    const caIdValido = modoRetiradoForaToa ? (caId.length === 12) : true;
 
-    if (contrato && codigoBaixaValido && cidade && tecnico && empresa && janelaValida && temImagens && temGps) {
+    if (contrato && codigoBaixaValido && cidade && tecnico && empresa && janelaValida && caIdValido && temImagens && temGps) {
         btnSalvar.disabled = false;
     } else {
         btnSalvar.disabled = true;
     }
+}
+
+// --- RECONHECIMENTO ÓPTICO DE CARACTERES (OCR - TESSERACT) ---
+async function analisarImagemOCR(base64Src) {
+    if (!modoRetiradoForaToa) return; 
+    
+    geoInfo.style.display = 'block';
+    geoInfo.textContent = "Processando OCR na etiqueta do equipamento...";
+    
+    try {
+        const result = await Tesseract.recognize(base64Src, 'eng');
+        const textoDetectado = result.data.text;
+        
+        // Limpa espaços e formatações para buscar blocos numéricos contínuos de 12 dígitos
+        const matches = textoDetectado.replace(/[\s\-\.]/g, '').match(/\d{12}/);
+        
+        if (matches && matches.length > 0) {
+            const caIdDetectado = matches[0];
+            inputCaId.value = caIdDetectado;
+            geoInfo.innerHTML = `📍 Lat: ${localizacaoAtual?.latitude || 'N/A'} | Lon: ${localizacaoAtual?.longitude || 'N/A'}<br>🏠 ${enderecoAtual}<br><span style="color:#22c55e; font-weight:bold;">✔ CA ID IDENTIFICADO: ${caIdDetectado}</span>`;
+        } else {
+            geoInfo.innerHTML = `📍 Lat: ${localizacaoAtual?.latitude || 'N/A'} | Lon: ${localizacaoAtual?.longitude || 'N/A'}<br>🏠 ${enderecoAtual}<br><span style="color:#f59e0b;">⚠️ CA ID não encontrado na imagem. Digite os 12 dígitos manualmente.</span>`;
+        }
+    } catch (error) {
+        console.error("Erro na leitura OCR:", error);
+    }
+    validarEstadoFormulario();
 }
 
 // --- BUSCAR ENDEREÇO VIA REVERSE GEOCIDING (OSM Nominatim) ---
@@ -870,11 +909,12 @@ cameraInput.addEventListener('change', (event) => {
 
             estamparMetadadosNaFoto(base64Original, (base64Marcado) => {
                 adicionarImagemNaGrade(base64Marcado);
+                analisarImagemOCR(base64Original); 
             });
         }
         reader.readAsDataURL(file);
     }
-    cameraInput.value = ""; // Limpa cache do input para possibilitar novas capturas sequenciais
+    cameraInput.value = ""; 
 });
 
 // --- CONTROLE DA GALERIA ---
@@ -905,15 +945,16 @@ galleryInput.addEventListener('change', async (event) => {
             reader.onload = function(e) {
                 estamparMetadadosNaFoto(e.target.result, (base64Marcado) => {
                     adicionarImagemNaGrade(base64Marcado);
+                    analisarImagemOCR(e.target.result); 
                 });
             }
             reader.readAsDataURL(file);
         }
     }
-    galleryInput.value = ""; // Limpa cache do input para possibilitar novas seleções
+    galleryInput.value = ""; 
 });
 
-// --- SALVAMENTO REAL NO AZURE (Chamada à Azure Function) ---
+// --- SALVAMENTO NO AZURE ---
 btnSalvar.addEventListener('click', async () => {
     const contrato = inputContrato.value.trim();
     const codigoBaixa = inputCodigoBaixa.value.trim();
@@ -922,8 +963,8 @@ btnSalvar.addEventListener('click', async () => {
     const empresa = inputEmpresa.value.trim();
     const janela = selectJanela.value;
     const observacao = inputObservacao.value.trim();
+    const caId = inputCaId.value.trim();
 
-    // Ajuste dos valores de validação para o envio baseado no modo ativo
     const codigoBaixaValido = modoRetiradoForaToa ? "FORA TOA" : codigoBaixa;
     const janelaValida = modoRetiradoForaToa ? "FORA TOA" : janela;
 
@@ -941,7 +982,6 @@ btnSalvar.addEventListener('click', async () => {
     btnSalvar.textContent = "SALVANDO DADOS NO AZURE...";
     alertSave.style.display = 'none';
 
-    // REGRA DE NEGÓCIO: Define dinamicamente o tipo de serviço baseado na janela ou no modo
     let servicoDinamico = "RETIRADA";
     if (!modoRetiradoForaToa && (janela === "08HRS-12HRS" || janela === "12HRS-18HRS")) {
         servicoDinamico = "BOX";
@@ -960,7 +1000,8 @@ btnSalvar.addEventListener('click', async () => {
         localizacao: localizacaoAtual,
         endereco: enderecoAtual,
         imagens: listaImagens,
-        observacao: observacao // Enviando as observações preenchidas
+        observacao: observacao,
+        caId: modoRetiradoForaToa ? caId : null
     };
 
     try {
@@ -979,11 +1020,11 @@ btnSalvar.addEventListener('click', async () => {
                                    CONTRATO: ${contrato} | TIPO: ${servicoDinamico} | FOTOS: ${listaImagens.length}
                                    </span>`;
 
-            // Reseta contrato, código de baixa, observação, fotos e janela (MANTÉM Técnico, Empresa e Cidade salvos)
             inputContrato.value = "";
             inputCodigoBaixa.value = "";
             inputObservacao.value = "";
             selectJanela.value = "";
+            inputCaId.value = "";
             
             listaImagens = [];
             localizacaoAtual = null;
@@ -991,7 +1032,6 @@ btnSalvar.addEventListener('click', async () => {
             previewGrid.innerHTML = "";
             geoInfo.style.display = 'none';
             
-            // Retorna o aplicativo para o modo normal (Evidência) após gravação bem sucedida
             alternarModo('evidencia');
             
             validarEstadoFormulario();
