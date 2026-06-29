@@ -476,7 +476,7 @@ const tituloPagina = document.getElementById('titulo-pagina');
 const selectJanela = document.getElementById('select-janela');
 const listaCidadesDatalist = document.getElementById('lista-cidades');
 
-// Estrutura para fotos + CA ID + MACs por equipamento
+// Estrutura unificada de equipamentos
 let listaEquipamentos = []; 
 
 let localizacaoAtual = null;
@@ -499,9 +499,6 @@ function alternarModo(modo) {
         wrapperCodigoBaixa.style.display = 'none';
         wrapperJanela.style.display = 'none'; 
         btnGaleria.style.display = 'none';    
-        
-        inputCodigoBaixa.value = ""; 
-        selectJanela.value = ""; 
     } else {
         modoRetiradoForaToa = false;
         localStorage.setItem('modo_ativo', 'evidencia');
@@ -608,7 +605,7 @@ inputObservacao.addEventListener('input', (e) => {
     e.target.value = e.target.value.toUpperCase();
 });
 
-// --- FUNÇÃO AUXILIAR PARA GERAR ENTRADAS COMPACTAS DE TEXTO ---
+// --- FUNÇÃO AUXILIAR PARA GERAR ENTRADAS COMPACTAS NO CARD ---
 function criarInputCard(placeholder, valor, index, propriedade, maxLength, pattern) {
     const input = document.createElement('input');
     input.type = 'text';
@@ -631,7 +628,7 @@ function criarInputCard(placeholder, valor, index, propriedade, maxLength, patte
         if (propriedade === 'caId') {
             val = val.replace(/\D/g, ''); // CA ID apenas números
         } else {
-            val = val.replace(/[^0-9A-F:]/g, ''); // MACs apenas Hexadecimal e dois pontos
+            val = val.replace(/[^0-9A-F:]/g, ''); // MAC apenas Hexadecimal e dois pontos
         }
         e.target.value = val;
         listaEquipamentos[index][propriedade] = val;
@@ -640,7 +637,7 @@ function criarInputCard(placeholder, valor, index, propriedade, maxLength, patte
     return input;
 }
 
-// --- RENDERIZAR FOTOS COM CAMPOS DINÂMICOS DE CA ID E MACS ---
+// --- RENDERIZAR FOTOS COM CAMPOS DINÂMICOS DE CA ID E MAC ---
 function renderizarGradePreviews() {
     previewGrid.innerHTML = '';
     
@@ -666,17 +663,13 @@ function renderizarGradePreviews() {
         img.style.border = 'none';
         itemDiv.appendChild(img);
 
-        // Se estiver no modo TOA, anexa as caixas de texto com tratamento de dados
+        // Se estiver no modo TOA, anexa as caixas de texto simplificadas
         if (modoRetiradoForaToa) {
             const inputCaId = criarInputCard('CA ID (12 DÍG.)', equip.caId, index, 'caId', 12, '[0-9]*');
-            const inputMta = criarInputCard('MTA MAC', equip.mtaMac, index, 'mtaMac', 17, '[0-9A-Fa-f:]*');
-            const inputWan = criarInputCard('WAN MAC', equip.wanMac, index, 'wanMac', 17, '[0-9A-Fa-f:]*');
-            const inputCm = criarInputCard('CM MAC', equip.cmMac, index, 'cmMac', 17, '[0-9A-Fa-f:]*');
+            const inputMac = criarInputCard('ENDEREÇO MAC', equip.mac, index, 'mac', 17, '[0-9A-Fa-f:]*');
 
             itemDiv.appendChild(inputCaId);
-            itemDiv.appendChild(inputMta);
-            itemDiv.appendChild(inputWan);
-            itemDiv.appendChild(inputCm);
+            itemDiv.appendChild(inputMac);
         }
 
         // Botão de Excluir Card (✕)
@@ -743,14 +736,20 @@ function validarEstadoFormulario() {
     }
 }
 
-// --- AUXILIAR DE BUSCA DE MACs/IDs POR REGEX FLEXÍVEL ---
-function extrairCampoPorPrefixo(texto, prefixo, padrao) {
-    const regex = new RegExp(`(?:${prefixo})[\\s\\:\\-\\.\\=]*(${padrao})`, 'i');
-    const match = texto.match(regex);
-    return match ? match[1].toUpperCase() : '';
+// --- AUXILIAR DE BUSCA GERAL DE MAC ---
+function extrairMacGeral(texto) {
+    // Busca por qualquer prefixo de MAC comum na etiqueta
+    const regexPrefixo = /(?:mac|mta|wan|cm|ethernet)[\s\:\-\.\=]*(([0-9A-F]{2}[:\-]){5}[0-9A-F]{2}|[0-9A-F]{12})/i;
+    const matchPrefixo = texto.match(regexPrefixo);
+    if (matchPrefixo) return matchPrefixo[1].toUpperCase();
+
+    // Fallback: Busca qualquer padrão MAC isolado estruturado
+    const regexIsolado = /\b(?:[0-9A-F]{2}[:\-]){5}[0-9A-F]{2}\b/i;
+    const matchIsolado = texto.match(regexIsolado);
+    return matchIsolado ? matchIsolado[0].toUpperCase() : '';
 }
 
-// --- RECONHECIMENTO ÓPTICO DE CARACTERES (OCR COMPLETO) ---
+// --- RECONHECIMENTO ÓPTICO DE CARACTERES (OCR SIMPLIFICADO) ---
 async function analisarImagemOCR(base64Src, targetEquip) {
     if (!modoRetiradoForaToa) return; 
     
@@ -778,25 +777,17 @@ async function analisarImagemOCR(base64Src, targetEquip) {
             }
         }
         
-        // Padrão estruturado de endereços MAC (ex: XX:XX:XX:XX:XX:XX ou XXXXXXXXXXXX)
-        const padraoMac = '(?:[0-9A-F]{2}[:\\-]){5}[0-9A-F]{2}|[0-9A-F]{12}';
-        
-        const mtaDetectado = extrairCampoPorPrefixo(textoDetectado, "mta\\s*mac", padraoMac);
-        const wanDetectado = extrairCampoPorPrefixo(textoDetectado, "wan\\s*mac", padraoMac);
-        const cmDetectado = extrairCampoPorPrefixo(textoDetectado, "cm\\s*mac", padraoMac);
+        const macDetectado = extrairMacGeral(textoDetectado);
 
-        // Atualiza o objeto de dados mapeados deste equipamento específico
         targetEquip.caId = caIdDetectado;
-        targetEquip.mtaMac = mtaDetectado;
-        targetEquip.wanMac = wanDetectado;
-        targetEquip.cmMac = cmDetectado;
+        targetEquip.mac = macDetectado;
         
         renderizarGradePreviews();
         
         if (caIdDetectado) {
             geoInfo.innerHTML = `📍 Lat: ${localizacaoAtual?.latitude || 'N/A'} | Lon: ${localizacaoAtual?.longitude || 'N/A'}<br>🏠 ${enderecoAtual}<br><span style="color:#22c55e; font-weight:bold;">✔ EQUIPAMENTO MAPEADO COM SUCESSO</span>`;
         } else {
-            geoInfo.innerHTML = `📍 Lat: ${localizacaoAtual?.latitude || 'N/A'} | Lon: ${localizacaoAtual?.longitude || 'N/A'}<br>🏠 ${enderecoAtual}<br><span style="color:#f59e0b;">⚠️ CA ID não identificado na etiqueta. Por favor, verifique ou digite os dados abaixo da foto correspondente.</span>`;
+            geoInfo.innerHTML = `📍 Lat: ${localizacaoAtual?.latitude || 'N/A'} | Lon: ${localizacaoAtual?.longitude || 'N/A'}<br>🏠 ${enderecoAtual}<br><span style="color:#f59e0b;">⚠️ CA ID não identificado na etiqueta. Por favor, digite os dados abaixo da foto correspondente.</span>`;
         }
     } catch (error) {
         console.error("Erro na leitura OCR:", error);
@@ -885,7 +876,6 @@ btnAtualizarGps.addEventListener('click', () => {
                 btnAtualizarGps.disabled = false;
                 btnAtualizarGps.textContent = "⚠️ ATUALIZAR GEOLOCALIZAÇÃO";
                 
-                // Reconstrói as fotos estampando a geolocalização atualizada
                 const equipamentosAntigos = [...listaEquipamentos];
                 listaEquipamentos = [];
                 previewGrid.innerHTML = "";
@@ -895,9 +885,7 @@ btnAtualizarGps.addEventListener('click', () => {
                         const novoEquip = { 
                             base64: base64Marcado, 
                             caId: equip.caId,
-                            mtaMac: equip.mtaMac,
-                            wanMac: equip.wanMac,
-                            cmMac: equip.cmMac 
+                            mac: equip.mac 
                         };
                         listaEquipamentos.push(novoEquip);
                         renderizarGradePreviews();
@@ -1000,9 +988,7 @@ function adicionarEquipamentoEProcessar(base64Image) {
     const novoEquipamento = {
         base64: base64Image,
         caId: "",
-        mtaMac: "",
-        wanMac: "",
-        cmMac: ""
+        mac: ""
     };
     
     listaEquipamentos.push(novoEquipamento);
@@ -1124,9 +1110,7 @@ btnSalvar.addEventListener('click', async () => {
     const caIdsEnvio = modoRetiradoForaToa 
         ? JSON.stringify(listaEquipamentos.map(e => ({
             caId: e.caId,
-            mtaMac: e.mtaMac,
-            wanMac: e.wanMac,
-            cmMac: e.cmMac
+            mac: e.mac
           })))
         : null;
 
