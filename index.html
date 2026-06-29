@@ -731,14 +731,19 @@ function validarEstadoFormulario() {
     const codigoBaixaValido = modoRetiradoForaToa ? true : !!codigoBaixa;
     const janelaValida = modoRetiradoForaToa ? true : !!janela;
     
-    const caIdsValidos = modoRetiradoForaToa 
-        ? listaEquipamentos.every(equip => equip.caId && equip.caId.length === 12)
+    // No modo TOA, libera se pelo menos um dos campos (CA ID ou MAC) estiver preenchido de forma válida
+    const equipamentosValidos = modoRetiradoForaToa 
+        ? listaEquipamentos.every(equip => {
+            const temCaId = equip.caId && equip.caId.trim().length === 12;
+            const temMac = equip.mac && equip.mac.trim().length > 0;
+            return temCaId || temMac;
+          })
         : true;
 
     // Regra condicional: GPS é estritamente obrigatório no modo Evidência, mas opcional no modo TOA
     const gpsValido = modoRetiradoForaToa ? true : temGps;
 
-    if (contrato && codigoBaixaValido && cidade && tecnico && empresa && janelaValida && caIdsValidos && temImagens && gpsValido) {
+    if (contrato && codigoBaixaValido && cidade && tecnico && empresa && janelaValida && equipamentosValidos && temImagens && gpsValido) {
         btnSalvar.disabled = false;
     } else {
         btnSalvar.disabled = true;
