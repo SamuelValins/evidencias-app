@@ -391,7 +391,6 @@ body{
             <div class="filter-card">
                 <h3>Filtros de Pesquisa</h3>
                 <div class="filter-grid">
-                    <div class="filter-grid">
                     <div class="filter-group">
                         <label>Data Início (Calendário)</label>
                         <input type="date" id="filtro-data-inicio">
@@ -661,7 +660,7 @@ function processarEFiltarDados() {
 
     const contratosAgrupados = {};
     dadosFiltrados.forEach(item => {
-        if (!contratosAgrupados[item.contrato]) {
+        if (!contracts = contratosAgrupados[item.contrato]) {
             contratosAgrupados[item.contrato] = [];
         }
         contratosAgrupados[item.contrato].push(item);
@@ -743,9 +742,7 @@ function renderizarResultados(contratosAgrupados) {
 
                 if (isForaToa) {
                     let caIdsArray = [];
-                    let mtaArray = [];
-                    let wanArray = [];
-                    let cmArray = [];
+                    let macArray = [];
 
                     // Analisador inteligente com fallback caso o formato de salvamento seja texto bruto antigo
                     if (item.caId) {
@@ -754,9 +751,7 @@ function renderizarResultados(contratosAgrupados) {
                             if (Array.isArray(parsed)) {
                                 parsed.forEach(e => {
                                     caIdsArray.push(e.caId || '');
-                                    mtaArray.push(e.mtaMac || '');
-                                    wanArray.push(e.wanMac || '');
-                                    cmArray.push(e.cmMac || '');
+                                    macArray.push(e.mac || '');
                                 });
                             }
                         } catch (err) {
@@ -772,17 +767,13 @@ function renderizarResultados(contratosAgrupados) {
 
                     item.urlsFotos.forEach((url, idx) => {
                         const caIdText = caIdsArray[idx] || 'NÃO ENCONTRADO';
-                        const mtaText = mtaArray[idx] || '';
-                        const wanText = wanArray[idx] || '';
-                        const cmText = cmArray[idx] || '';
+                        const macText = macArray[idx] || '';
 
                         htmlEvidencia += `
                             <div style="background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 8px; display: flex; flex-direction: column; align-items: center; gap: 4px;">
                                 <img src="${url}" class="evidencia-img" onclick="window.open('${url}', '_blank')" style="width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 6px;">
                                 <span style="font-size: 11px; font-weight: bold; color: #38bdf8; text-align: center; margin-top: 4px; word-break: break-all;">📟 CA ID: ${caIdText}</span>
-                                ${mtaText ? `<span style="font-size: 9px; color: #cbd5e1; text-align: center; word-break: break-all;">🔌 MTA: ${mtaText}</span>` : ''}
-                                ${wanText ? `<span style="font-size: 9px; color: #cbd5e1; text-align: center; word-break: break-all;">🌐 WAN: ${wanText}</span>` : ''}
-                                ${cmText ? `<span style="font-size: 9px; color: #cbd5e1; text-align: center; word-break: break-all;">📡 CM: ${cmText}</span>` : ''}
+                                ${macText ? `<span style="font-size: 10px; color: #cbd5e1; text-align: center; word-break: break-all;">🔌 MAC: ${macText}</span>` : ''}
                             </div>
                         `;
                     });
