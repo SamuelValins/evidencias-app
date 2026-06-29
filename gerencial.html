@@ -660,7 +660,7 @@ function processarEFiltarDados() {
 
     const contratosAgrupados = {};
     dadosFiltrados.forEach(item => {
-        if (!contracts = contratosAgrupados[item.contrato]) {
+        if (!contratosAgrupados[item.contrato]) {
             contratosAgrupados[item.contrato] = [];
         }
         contratosAgrupados[item.contrato].push(item);
