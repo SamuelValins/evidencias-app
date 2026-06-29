@@ -499,6 +499,7 @@ function alternarModo(modo) {
         wrapperCodigoBaixa.style.display = 'none';
         wrapperJanela.style.display = 'none'; 
         btnGaleria.style.display = 'none';    
+        geoInfo.style.display = 'none'; // Esconde barra de coordenadas no modo TOA
     } else {
         modoRetiradoForaToa = false;
         localStorage.setItem('modo_ativo', 'evidencia');
@@ -512,6 +513,10 @@ function alternarModo(modo) {
         wrapperCodigoBaixa.style.display = 'block';
         wrapperJanela.style.display = 'block'; 
         btnGaleria.style.display = 'block';    
+        
+        if (listaEquipamentos.length > 0) {
+            geoInfo.style.display = 'block';
+        }
     }
     renderizarGradePreviews();
     validarEstadoFormulario();
@@ -704,7 +709,7 @@ function renderizarGradePreviews() {
     });
 }
 
-// --- CONTROLE DE VALIDAÇÃO DO FORMULÁRIO (CORRIGIDO - GPS NÃO OBRIGATÓRIO PARA DESTRAVAR) ---
+// --- CONTROLE DE VALIDAÇÃO DO FORMULÁRIO (CORRIGIDO - CONDICIONAL GPS) ---
 function validarEstadoFormulario() {
     const contrato = inputContrato.value.trim();
     const codigoBaixa = inputCodigoBaixa.value.trim();
@@ -714,6 +719,14 @@ function validarEstadoFormulario() {
     const janela = selectJanela.value;
     
     const temImagens = listaEquipamentos.length > 0;
+    const temGps = localizacaoAtual !== null;
+
+    // Só exibe o botão de atualização de GPS se for no modo de Evidência comum
+    if (temImagens && !temGps && !modoRetiradoForaToa) {
+        btnAtualizarGps.style.display = 'block';
+    } else {
+        btnAtualizarGps.style.display = 'none';
+    }
 
     const codigoBaixaValido = modoRetiradoForaToa ? true : !!codigoBaixa;
     const janelaValida = modoRetiradoForaToa ? true : !!janela;
@@ -722,8 +735,10 @@ function validarEstadoFormulario() {
         ? listaEquipamentos.every(equip => equip.caId && equip.caId.length === 12)
         : true;
 
-    // GPS não impede mais que o botão de salvar seja desbloqueado
-    if (contrato && codigoBaixaValido && cidade && tecnico && empresa && janelaValida && caIdsValidos && temImagens) {
+    // Regra condicional: GPS é estritamente obrigatório no modo Evidência, mas opcional no modo TOA
+    const gpsValido = modoRetiradoForaToa ? true : temGps;
+
+    if (contrato && codigoBaixaValido && cidade && tecnico && empresa && janelaValida && caIdsValidos && temImagens && gpsValido) {
         btnSalvar.disabled = false;
     } else {
         btnSalvar.disabled = true;
@@ -777,9 +792,9 @@ async function analisarImagemOCR(base64Src, targetEquip) {
         renderizarGradePreviews();
         
         if (caIdDetectado) {
-            geoInfo.innerHTML = `📍 Lat: ${localizacaoAtual?.latitude || 'N/A'} | Lon: ${localizacaoAtual?.longitude || 'N/A'}<br>🏠 ${enderecoAtual}<br><span style="color:#22c55e; font-weight:bold;">✔ EQUIPAMENTO MAPEADO COM SUCESSO</span>`;
+            geoInfo.innerHTML = `<span style="color:#22c55e; font-weight:bold;">✔ EQUIPAMENTO MAPEADO COM SUCESSO</span>`;
         } else {
-            geoInfo.innerHTML = `📍 Lat: ${localizacaoAtual?.latitude || 'N/A'} | Lon: ${localizacaoAtual?.longitude || 'N/A'}<br>🏠 ${enderecoAtual}<br><span style="color:#f59e0b;">⚠️ CA ID não identificado na etiqueta. Por favor, digite os dados abaixo da foto correspondente.</span>`;
+            geoInfo.innerHTML = `<span style="color:#f59e0b;">⚠️ CA ID não identificado na etiqueta. Por favor, digite os dados abaixo da foto correspondente.</span>`;
         }
     } catch (error) {
         console.error("Erro na leitura OCR:", error);
@@ -902,7 +917,7 @@ btnAtualizarGps.addEventListener('click', () => {
     }
 });
 
-// --- DESENHAR INFORMAÇÕES DIRETAMENTE NA FOTO (Canvas Corrigido) ---
+// --- DESENHAR INFORMAÇÕES DIRETAMENTE NA FOTO (Canvas) ---
 function estamparMetadadosNaFoto(base64Src, callback) {
     const img = new Image();
     img.src = base64Src;
@@ -950,7 +965,7 @@ function estamparMetadadosNaFoto(base64Src, callback) {
                 linhasEndereco.push(linhaAtual);
                 linhaAtual = inlineWord;
             } else {
-                linhaAtual = linhaAtual + inlineWord;
+                linhaAtual = inlineWord = linhaAtual + inlineWord;
             }
         }
         linhasEndereco.push(linhaAtual);
@@ -999,9 +1014,6 @@ btnTirarFoto.addEventListener('click', () => {
 cameraInput.addEventListener('change', (event) => {
     const file = event.target.files[0];
     if (file) {
-        geoInfo.style.display = 'block';
-        geoInfo.textContent = "Processando foto e recuperando dados de satélite...";
-
         const reader = new FileReader();
         reader.onload = async function(e) {
             const base64Original = e.target.result;
@@ -1011,10 +1023,14 @@ cameraInput.addEventListener('change', (event) => {
             localizacaoAtual = metadados.gps;
             enderecoAtual = metadados.endereco;
 
-            if (localizacaoAtual) {
-                geoInfo.innerHTML = `📍 Lat: ${localizacaoAtual.latitude} | Lon: ${localizacaoAtual.longitude}<br>🏠 ${enderecoAtual}`;
-            } else {
-                geoInfo.innerHTML = `⚠️ GPS indisponível.<br>🏠 ${enderecoAtual}`;
+            // Se for no modo de Evidência comum, exibe o painel de geolocalização na tela
+            if (!modoRetiradoForaToa) {
+                geoInfo.style.display = 'block';
+                if (localizacaoAtual) {
+                    geoInfo.innerHTML = `📍 Lat: ${localizacaoAtual.latitude} | Lon: ${localizacaoAtual.longitude}<br>🏠 ${enderecoAtual}`;
+                } else {
+                    geoInfo.innerHTML = `⚠️ GPS indisponível.<br>🏠 ${enderecoAtual}`;
+                }
             }
 
             estamparMetadadosNaFoto(base64Original, (base64Marcado) => {
@@ -1035,17 +1051,18 @@ btnGaleria.addEventListener('click', () => {
 galleryInput.addEventListener('change', async (event) => {
     const files = event.target.files;
     if (files.length > 0) {
-        geoInfo.style.display = 'block';
-        geoInfo.textContent = "Processando fotos da galeria...";
-
         const metadados = await buscaMetadadosPromise;
         localizacaoAtual = metadados.gps;
         enderecoAtual = metadados.endereco;
 
-        if (localizacaoAtual) {
-            geoInfo.innerHTML = `📍 Lat: ${localizacaoAtual.latitude} | Lon: ${localizacaoAtual.longitude}<br>🏠 ${enderecoAtual}`;
-        } else {
-            geoInfo.innerHTML = `⚠️ GPS indisponível.<br>🏠 ${enderecoAtual}`;
+        // Se for no modo de Evidência comum, exibe o painel de geolocalização na tela
+        if (!modoRetiradoForaToa) {
+            geoInfo.style.display = 'block';
+            if (localizacaoAtual) {
+                geoInfo.innerHTML = `📍 Lat: ${localizacaoAtual.latitude} | Lon: ${localizacaoAtual.longitude}<br>🏠 ${enderecoAtual}`;
+            } else {
+                geoInfo.innerHTML = `⚠️ GPS indisponível.<br>🏠 ${enderecoAtual}`;
+            }
         }
 
         for (let i = 0; i < files.length; i++) {
