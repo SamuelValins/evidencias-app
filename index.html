@@ -719,14 +719,6 @@ function validarEstadoFormulario() {
     const janela = selectJanela.value;
     
     const temImagens = listaEquipamentos.length > 0;
-    const temGps = localizacaoAtual !== null;
-
-    // Só exibe o botão de atualização de GPS se for no modo de Evidência comum
-    if (temImagens && !temGps && !modoRetiradoForaToa) {
-        btnAtualizarGps.style.display = 'block';
-    } else {
-        btnAtualizarGps.style.display = 'none';
-    }
 
     const codigoBaixaValido = modoRetiradoForaToa ? true : !!codigoBaixa;
     const janelaValida = modoRetiradoForaToa ? true : !!janela;
@@ -740,10 +732,8 @@ function validarEstadoFormulario() {
           })
         : true;
 
-    // Regra condicional: GPS é estritamente obrigatório no modo Evidência, mas opcional no modo TOA
-    const gpsValido = modoRetiradoForaToa ? true : temGps;
-
-    if (contrato && codigoBaixaValido && cidade && tecnico && empresa && janelaValida && equipamentosValidos && temImagens && gpsValido) {
+    // GPS removido da validação para ambos os modos - nunca impede o salvamento
+    if (contrato && codigoBaixaValido && cidade && tecnico && empresa && janelaValida && equipamentosValidos && temImagens) {
         btnSalvar.disabled = false;
     } else {
         btnSalvar.disabled = true;
