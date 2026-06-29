@@ -704,7 +704,7 @@ function renderizarGradePreviews() {
     });
 }
 
-// --- CONTROLE DE VALIDAÇÃO DO FORMULÁRIO ---
+// --- CONTROLE DE VALIDAÇÃO DO FORMULÁRIO (CORRIGIDO - GPS NÃO OBRIGATÓRIO PARA DESTRAVAR) ---
 function validarEstadoFormulario() {
     const contrato = inputContrato.value.trim();
     const codigoBaixa = inputCodigoBaixa.value.trim();
@@ -714,13 +714,6 @@ function validarEstadoFormulario() {
     const janela = selectJanela.value;
     
     const temImagens = listaEquipamentos.length > 0;
-    const temGps = localizacaoAtual !== null;
-
-    if (temImagens && !temGps) {
-        btnAtualizarGps.style.display = 'block';
-    } else {
-        btnAtualizarGps.style.display = 'none';
-    }
 
     const codigoBaixaValido = modoRetiradoForaToa ? true : !!codigoBaixa;
     const janelaValida = modoRetiradoForaToa ? true : !!janela;
@@ -729,7 +722,8 @@ function validarEstadoFormulario() {
         ? listaEquipamentos.every(equip => equip.caId && equip.caId.length === 12)
         : true;
 
-    if (contrato && codigoBaixaValido && cidade && tecnico && empresa && janelaValida && caIdsValidos && temImagens && temGps) {
+    // GPS não impede mais que o botão de salvar seja desbloqueado
+    if (contrato && codigoBaixaValido && cidade && tecnico && empresa && janelaValida && caIdsValidos && temImagens) {
         btnSalvar.disabled = false;
     } else {
         btnSalvar.disabled = true;
@@ -738,12 +732,10 @@ function validarEstadoFormulario() {
 
 // --- AUXILIAR DE BUSCA GERAL DE MAC ---
 function extrairMacGeral(texto) {
-    // Busca por qualquer prefixo de MAC comum na etiqueta
     const regexPrefixo = /(?:mac|mta|wan|cm|ethernet)[\s\:\-\.\=]*(([0-9A-F]{2}[:\-]){5}[0-9A-F]{2}|[0-9A-F]{12})/i;
     const matchPrefixo = texto.match(regexPrefixo);
     if (matchPrefixo) return matchPrefixo[1].toUpperCase();
 
-    // Fallback: Busca qualquer padrão MAC isolado estruturado
     const regexIsolado = /\b(?:[0-9A-F]{2}[:\-]){5}[0-9A-F]{2}\b/i;
     const matchIsolado = texto.match(regexIsolado);
     return matchIsolado ? matchIsolado[0].toUpperCase() : '';
@@ -910,7 +902,7 @@ btnAtualizarGps.addEventListener('click', () => {
     }
 });
 
-// --- DESENHAR INFORMAÇÕES DIRETAMENTE NA FOTO (Canvas) ---
+// --- DESENHAR INFORMAÇÕES DIRETAMENTE NA FOTO (Canvas Corrigido) ---
 function estamparMetadadosNaFoto(base64Src, callback) {
     const img = new Image();
     img.src = base64Src;
@@ -958,7 +950,7 @@ function estamparMetadadosNaFoto(base64Src, callback) {
                 linhasEndereco.push(linhaAtual);
                 linhaAtual = inlineWord;
             } else {
-                linhaAtual = inlineWord = linhaAtual + inlineWord;
+                linhaAtual = linhaAtual + inlineWord;
             }
         }
         linhasEndereco.push(linhaAtual);
@@ -1088,8 +1080,8 @@ btnSalvar.addEventListener('click', async () => {
         return;
     }
 
-    if (listaEquipamentos.length === 0 || !localizacaoAtual) {
-        alert("Certifique-se de que possui ao menos uma imagem e a geolocalização capturada.");
+    if (listaEquipamentos.length === 0) {
+        alert("Certifique-se de que possui ao menos uma imagem.");
         return;
     }
 
