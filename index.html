@@ -392,7 +392,6 @@ const dadosMapeamento = [
     {c:"JAGUARIUNA", e:"NEW TIME"},
     {c:"JALES", e:"CANTOIA DDD17"},
     {c:"JARDINOPOLIS", e:"BASIC DDD16/17"},
-    {c:"JARDINOPOLIS", e:"BASIC DDD16/17"},
     {c:"JAU", e:"BASIC DDD14"},
     {c:"JOSE BONIFACIO", e:"CANTOIA DDD17"},
     {c:"LARANJAL PAULISTA", e:"TEMPO"},
@@ -511,6 +510,7 @@ let localizacaoAtual = null;
 let enderecoAtual = "Não disponível";
 let modoRetiradoForaToa = false;
 let buscaMetadadosPromise = null;
+let ocrStatusText = ""; // Armazena feedback do OCR para não sobrescrever o GPS
 
 // --- CONTROLE DE ALTERNÂNCIA DE MODO ---
 function alternarModo(modo) {
@@ -527,7 +527,6 @@ function alternarModo(modo) {
         wrapperCodigoBaixa.style.display = 'none';
         wrapperJanela.style.display = 'none'; 
         btnGaleria.style.display = 'none';    
-        geoInfo.style.display = 'none'; // Esconde barra de coordenadas no modo TOA
     } else {
         modoRetiradoForaToa = false;
         localStorage.setItem('modo_ativo', 'evidencia');
@@ -541,10 +540,6 @@ function alternarModo(modo) {
         wrapperCodigoBaixa.style.display = 'block';
         wrapperJanela.style.display = 'block'; 
         btnGaleria.style.display = 'block';    
-        
-        if (listaEquipamentos.length > 0) {
-            geoInfo.style.display = 'block';
-        }
     }
     renderizarGradePreviews();
     validarEstadoFormulario();
@@ -737,7 +732,7 @@ function renderizarGradePreviews() {
     });
 }
 
-// --- CONTROLE DE VALIDAÇÃO DO FORMULÁRIO (CORRIGIDO - CONDICIONAL GPS) ---
+// --- CONTROLE DE VALIDAÇÃO DO FORMULÁRIO (RIGIDO - GEOLOCALIZAÇÃO OBRIGATÓRIA) ---
 function validarEstadoFormulario() {
     const contrato = inputContrato.value.trim();
     const codigoBaixa = inputCodigoBaixa.value.trim();
@@ -747,6 +742,9 @@ function validarEstadoFormulario() {
     const janela = selectJanela.value;
     
     const temImagens = listaEquipamentos.length > 0;
+    
+    // Verificação de coordenadas válidas
+    const temGps = !!(localizacaoAtual && localizacaoAtual.latitude && localizacaoAtual.longitude);
 
     const codigoBaixaValido = modoRetiradoForaToa ? true : !!codigoBaixa;
     const janelaValida = modoRetiradoForaToa ? true : !!janela;
@@ -760,8 +758,30 @@ function validarEstadoFormulario() {
           })
         : true;
 
-    // GPS removido da validação para ambos os modos - nunca impede o salvamento
-    if (contrato && codigoBaixaValido && cidade && tecnico && empresa && janelaValida && equipamentosValidos && temImagens) {
+    // Controla exibição dinâmica do painel de coordenadas e do botão de atualização manual
+    if (temImagens) {
+        geoInfo.style.display = 'block';
+        btnAtualizarGps.style.display = 'block';
+        
+        let gpsText = temGps 
+            ? `<span style="color:#22c55e; font-weight:bold;">📍 GPS CAPTURADO: Lat ${localizacaoAtual.latitude} | Lon ${localizacaoAtual.longitude}</span>` 
+            : `<span style="color:#ef4444; font-weight:bold;">⚠️ GEOLOCALIZAÇÃO OBRIGATÓRIA PENDENTE. Clique no botão de atualização abaixo para capturar.</span>`;
+            
+        let htmlContext = `${gpsText}<br>🏠 <strong>Endereço:</strong> ${enderecoAtual}`;
+        
+        // Se houver algum processamento ou resultado de OCR pendente, anexa ao final
+        if (modoRetiradoForaToa && ocrStatusText) {
+            htmlContext += `<div style="margin-top: 8px; border-top: 1px dashed #334155; padding-top: 8px;">${ocrStatusText}</div>`;
+        }
+        
+        geoInfo.innerHTML = htmlContext;
+    } else {
+        geoInfo.style.display = 'none';
+        btnAtualizarGps.style.display = 'none';
+    }
+
+    // GPS adicionado como critério rígido obrigatório
+    if (contrato && codigoBaixaValido && cidade && tecnico && empresa && janelaValida && equipamentosValidos && temImagens && temGps) {
         btnSalvar.disabled = false;
     } else {
         btnSalvar.disabled = true;
@@ -779,12 +799,12 @@ function extrairMacGeral(texto) {
     return matchIsolado ? matchIsolado[0].toUpperCase() : '';
 }
 
-// --- RECONHECIMENTO ÓPTICO DE CARACTERES (OCR SIMPLIFICADO) ---
+// --- RECONHECIMENTO ÓPTICO DE CARACTERES (OCR COM RETORNO INTEGRADO) ---
 async function analisarImagemOCR(base64Src, targetEquip) {
     if (!modoRetiradoForaToa) return; 
     
-    geoInfo.style.display = 'block';
-    geoInfo.textContent = "Processando OCR na etiqueta do equipamento...";
+    ocrStatusText = "⌛ Processando OCR na etiqueta do equipamento...";
+    validarEstadoFormulario();
     
     try {
         const result = await Tesseract.recognize(base64Src, 'eng');
@@ -815,12 +835,13 @@ async function analisarImagemOCR(base64Src, targetEquip) {
         renderizarGradePreviews();
         
         if (caIdDetectado) {
-            geoInfo.innerHTML = `<span style="color:#22c55e; font-weight:bold;">✔ EQUIPAMENTO MAPEADO COM SUCESSO</span>`;
+            ocrStatusText = `<span style="color:#22c55e; font-weight:bold;">✔ EQUIPAMENTO MAPEADO COM SUCESSO (CA ID: ${caIdDetectado})</span>`;
         } else {
-            geoInfo.innerHTML = `<span style="color:#f59e0b;">⚠️ CA ID não identificado na etiqueta. Por favor, digite os dados abaixo da foto correspondente.</span>`;
+            ocrStatusText = `<span style="color:#f59e0b;">⚠️ CA ID não identificado na etiqueta. Por favor, digite os dados abaixo da foto correspondente.</span>`;
         }
     } catch (error) {
         console.error("Erro na leitura OCR:", error);
+        ocrStatusText = `<span style="color:#ef4444;">❌ Erro na leitura automática do CA ID/MAC. Digite manualmente.</span>`;
     }
     validarEstadoFormulario();
 }
@@ -890,7 +911,7 @@ btnAtualizarGps.addEventListener('click', () => {
     btnAtualizarGps.disabled = true;
     btnAtualizarGps.textContent = "BUSCANDO SATÉLITE...";
     geoInfo.style.display = 'block';
-    geoInfo.textContent = "Obtendo localização atual...";
+    geoInfo.innerHTML = "Obtendo localização atual de satélites...";
 
     if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
@@ -901,7 +922,6 @@ btnAtualizarGps.addEventListener('click', () => {
                 
                 geoInfo.innerHTML = `📍 Lat: ${lat} | Lon: ${lon}<br>⏳ Traduzindo endereço...`;
                 enderecoAtual = await buscarEndereco(lat, lon);
-                geoInfo.innerHTML = `📍 Lat: ${lat} | Lon: ${lon}<br>🏠 ${enderecoAtual}`;
                 
                 btnAtualizarGps.disabled = false;
                 btnAtualizarGps.textContent = "⚠️ ATUALIZAR GEOLOCALIZAÇÃO";
@@ -919,6 +939,7 @@ btnAtualizarGps.addEventListener('click', () => {
                         };
                         listaEquipamentos.push(novoEquip);
                         renderizarGradePreviews();
+                        validarEstadoFormulario();
                     });
                 }
                 
@@ -926,7 +947,7 @@ btnAtualizarGps.addEventListener('click', () => {
             },
             (error) => {
                 console.error(error);
-                geoInfo.innerHTML = "⚠️ Não foi possível obter o GPS. Certifique-se de autorizar a localização do navegador.";
+                geoInfo.innerHTML = `<span style="color:#ef4444; font-weight:bold;">⚠️ Erro de GPS: Não foi possível obter localização. Certifique-se de que a geolocalização do aparelho está ativa e autorizada no navegador.</span>`;
                 btnAtualizarGps.disabled = false;
                 btnAtualizarGps.textContent = "⚠️ ATUALIZAR GEOLOCALIZAÇÃO";
                 validarEstadoFormulario();
@@ -1046,16 +1067,6 @@ cameraInput.addEventListener('change', (event) => {
             localizacaoAtual = metadados.gps;
             enderecoAtual = metadados.endereco;
 
-            // Se for no modo de Evidência comum, exibe o painel de geolocalização na tela
-            if (!modoRetiradoForaToa) {
-                geoInfo.style.display = 'block';
-                if (localizacaoAtual) {
-                    geoInfo.innerHTML = `📍 Lat: ${localizacaoAtual.latitude} | Lon: ${localizacaoAtual.longitude}<br>🏠 ${enderecoAtual}`;
-                } else {
-                    geoInfo.innerHTML = `⚠️ GPS indisponível.<br>🏠 ${enderecoAtual}`;
-                }
-            }
-
             estamparMetadadosNaFoto(base64Original, (base64Marcado) => {
                 adicionarEquipamentoEProcessar(base64Marcado);
             });
@@ -1077,16 +1088,6 @@ galleryInput.addEventListener('change', async (event) => {
         const metadados = await buscaMetadadosPromise;
         localizacaoAtual = metadados.gps;
         enderecoAtual = metadados.endereco;
-
-        // Se for no modo de Evidência comum, exibe o painel de geolocalização na tela
-        if (!modoRetiradoForaToa) {
-            geoInfo.style.display = 'block';
-            if (localizacaoAtual) {
-                geoInfo.innerHTML = `📍 Lat: ${localizacaoAtual.latitude} | Lon: ${localizacaoAtual.longitude}<br>🏠 ${enderecoAtual}`;
-            } else {
-                geoInfo.innerHTML = `⚠️ GPS indisponível.<br>🏠 ${enderecoAtual}`;
-            }
-        }
 
         for (let i = 0; i < files.length; i++) {
             const file = files[i];
@@ -1122,6 +1123,12 @@ btnSalvar.addEventListener('click', async () => {
 
     if (listaEquipamentos.length === 0) {
         alert("Certifique-se de que possui ao menos uma imagem.");
+        return;
+    }
+
+    // Validação de segurança extra para GPS antes do envio
+    if (!localizacaoAtual || !localizacaoAtual.latitude || !localizacaoAtual.longitude) {
+        alert("A geolocalização é obrigatória. Por favor, ative o GPS e clique em 'Atualizar Geolocalização'.");
         return;
     }
 
@@ -1213,6 +1220,7 @@ btnSalvar.addEventListener('click', async () => {
             enderecoAtual = "Não disponível";
             previewGrid.innerHTML = "";
             geoInfo.style.display = 'none';
+            ocrStatusText = "";
             
             alternarModo('evidencia');
             
