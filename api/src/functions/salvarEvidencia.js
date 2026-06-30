@@ -48,7 +48,8 @@ app.http('salvarEvidencia', {
 
             for (let i = 0; i < imagens.length; i++) {
                 const base64Data = imagens[i];
-                const matches = base64Data.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+                // Expressão regular simplificada e segura para o MIME-type (evita erros de compilação de caractere/intervalo)
+                const matches = base64Data.match(/^data:([^;]+);base64,(.+)$/);
                 if (!matches || matches.length !== 3) continue;
 
                 const buffer = Buffer.from(matches[2], 'base64');
@@ -68,11 +69,11 @@ app.http('salvarEvidencia', {
             const tableClient = TableClient.fromConnectionString(connectionString, 'EvidenciasTable');
             await tableClient.createTable();
 
-            // Ajuste de segurança: Remove acentos e caracteres não permitidos em chaves do Azure Table (/ \ # ?)
+            // Limpeza de chave sem escapes desnecessários (evita erro "no-useless-escape" do compilador)
             const partitionKey = cidade
                 .normalize("NFD")
                 .replace(/[\u0300-\u036f]/g, "")
-                .replace(/[\\\/\#\?\t\n\r]/g, "")
+                .replace(/[\\\/#?\t\n\r]/g, "")
                 .toLowerCase()
                 .trim();
                 
