@@ -18,7 +18,7 @@ app.http('salvarEvidencia', {
 
             const body = await request.json();
             
-            // Extraindo os dados recebidos, incluindo observacao e caId
+            // Extraindo os dados recebidos
             const { 
                 contrato, 
                 codigoBaixa, 
@@ -68,10 +68,20 @@ app.http('salvarEvidencia', {
             const tableClient = TableClient.fromConnectionString(connectionString, 'EvidenciasTable');
             await tableClient.createTable();
 
-            const partitionKey = cidade.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+            // Ajuste de segurança: Remove acentos e caracteres não permitidos em chaves do Azure Table (/ \ # ?)
+            const partitionKey = cidade
+                .normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, "")
+                .replace(/[\\\/\#\?\t\n\r]/g, "")
+                .toLowerCase()
+                .trim();
+                
             const rowKey = `${contrato}-${Date.now()}`;
 
-            // Objeto de persistência com todos os dados tratados
+            // Ajuste de segurança para coordenadas: Evita gravação de valores NaN que causariam falha na API
+            const latVal = (localizacao && localizacao.latitude) ? parseFloat(localizacao.latitude) : 0;
+            const lonVal = (localizacao && localizacao.longitude) ? parseFloat(localizacao.longitude) : 0;
+
             const registroEvidencia = {
                 partitionKey: partitionKey,
                 rowKey: rowKey,
@@ -82,10 +92,10 @@ app.http('salvarEvidencia', {
                 empresa: empresa,
                 servico: servico,  
                 janela: janela,    
-                observacao: observacao || '', // Salvando o campo observação (vazio se não fornecido)
-                caId: caId || '',             // Salvando o campo caId (vazio se não fornecido)
-                latitude: localizacao ? parseFloat(localizacao.latitude) : 0,
-                longitude: localizacao ? parseFloat(localizacao.longitude) : 0,
+                observacao: observacao || '',
+                caId: caId || '',
+                latitude: isNaN(latVal) ? 0 : latVal,
+                longitude: isNaN(lonVal) ? 0 : lonVal,
                 endereco: endereco || 'Não disponível',
                 urlsFotos: JSON.stringify(urlsImagens),
                 dataHora: new Date().toISOString()
