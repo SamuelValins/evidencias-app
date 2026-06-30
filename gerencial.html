@@ -415,6 +415,14 @@ body{
                         <label>Contrato</label>
                         <input type="text" id="filtro-contrato" placeholder="Digite o contrato...">
                     </div>
+                    <div class="filter-group">
+                        <label>Serviço (Fora TOA)</label>
+                        <select id="filtro-fora-toa">
+                            <option value="">Todos</option>
+                            <option value="sim">Apenas FORA TOA</option>
+                            <option value="nao">Sem FORA TOA</option>
+                        </select>
+                    </div>
                 </div>
             </div>
 
@@ -444,6 +452,7 @@ const filtroDataFim = document.getElementById('filtro-data-fim');
 const filtroEmpresa = document.getElementById('filtro-empresa');
 const filtroTecnico = document.getElementById('filtro-tecnico');
 const filtroContrato = document.getElementById('filtro-contrato');
+const filtroForaToa = document.getElementById('filtro-fora-toa');
 
 const metricEmpresas = document.getElementById('metric-empresas');
 const metricLogins = document.getElementById('metric-logins');
@@ -625,6 +634,7 @@ function processarEFiltarDados() {
     const empresaVal = filtroEmpresa.value;
     const tecnicoVal = filtroTecnico.value;
     const contratoVal = filtroContrato.value.trim().toLowerCase();
+    const foraToaVal = filtroForaToa.value;
 
     const dadosFiltrados = todasEvidencias.filter(item => {
         let manter = true;
@@ -645,6 +655,10 @@ function processarEFiltarDados() {
         if (empresaVal && item.empresa !== empresaVal) manter = false;
         if (tecnicoVal && item.tecnico !== tecnicoVal) manter = false;
         if (contratoVal && (!item.contrato || !item.contrato.toLowerCase().includes(contratoVal))) manter = false;
+        
+        // Filtragem para Equipamentos Retirados (FORA TOA)
+        if (foraToaVal === 'sim' && item.servico !== 'FORA TOA') manter = false;
+        if (foraToaVal === 'nao' && item.servico === 'FORA TOA') manter = false;
 
         return manter;
     });
@@ -844,6 +858,7 @@ filtroDataFim.addEventListener('change', processarEFiltarDados);
 filtroEmpresa.addEventListener('change', processarEFiltarDados);
 filtroTecnico.addEventListener('change', processarEFiltarDados);
 filtroContrato.addEventListener('input', processarEFiltarDados);
+filtroForaToa.addEventListener('change', processarEFiltarDados);
 </script>
 
 </body>
