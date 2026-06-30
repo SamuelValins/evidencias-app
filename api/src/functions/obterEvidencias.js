@@ -41,7 +41,7 @@ app.http('obterEvidencias', {
             for await (const entity of listResults) {
                 evidencias.push({
                     contrato: entity.contrato,
-                    codigoBaixa: entity.codigoBaixa || 'N/A', // Mapeamento do Código de Baixa adicionado
+                    codigoBaixa: entity.codigoBaixa || 'N/A',
                     cidade: entity.cidade,
                     tecnico: entity.tecnico,
                     empresa: entity.empresa,
@@ -49,9 +49,9 @@ app.http('obterEvidencias', {
                     janela: entity.janela || 'N/A',   
                     observacao: entity.observacao || '', 
                     caId: entity.caId || '',             
-                    latitude: entity.latitude,
-                    longitude: entity.longitude,
-                    endereco: entity.endereco,
+                    latitude: typeof entity.latitude === 'number' ? entity.latitude : 0,
+                    longitude: typeof entity.longitude === 'number' ? entity.longitude : 0,
+                    endereco: entity.endereco || 'Não disponível',
                     urlsFotos: entity.urlsFotos ? JSON.parse(entity.urlsFotos) : [],
                     dataHora: entity.dataHora || entity.timestamp
                 });
