@@ -232,6 +232,7 @@ button{
     <div class="header-actions">
         <button id="btn-modo-evidencia" class="btn-mode btn-mode-evidencia">EVIDÊNCIA 🏠</button>
         <button id="btn-modo-toa" class="btn-mode btn-mode-toa">RETIRADO FORA TOA 🚫</button>
+        <button id="btn-abrir-historico" class="btn-navigation" style="border:none; cursor:pointer;">HISTÓRICO 📋</button>
         <a href="/gerencial.html" class="btn-navigation">Painel Gerencial 📊</a>
     </div>
 </div>
@@ -305,6 +306,25 @@ button{
 
 </div>
 
+<!-- Modal de Histórico de Preenchimento -->
+<div id="modal-historico" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.95); z-index: 10000; overflow-y: auto; padding: 20px; box-sizing: border-box;">
+    <div style="background: #1e293b; max-width: 500px; margin: 20px auto; padding: 20px; border-radius: 10px; border: 1px solid #334155; position: relative;">
+        <button id="btn-fechar-historico" style="position: absolute; top: 10px; right: 10px; width: 30px; height: 30px; border-radius: 50%; background: #ef4444; border: none; font-weight: bold; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; color: white;">✕</button>
+        <h3 style="margin-top: 0; color: #38bdf8;">📋 Histórico de Preenchimentos</h3>
+        <p style="font-size: 12px; color: #94a3b8; margin-bottom: 15px;">Visualização local das evidências enviadas por este dispositivo.</p>
+        
+        <!-- Filtro de Data Limitado a 15 Dias -->
+        <div style="margin-bottom: 15px; display: flex; flex-direction: column; gap: 5px;">
+            <label style="margin: 0; font-size: 12px; color: #cbd5e1;">Selecionar Data (Últimos 15 dias):</label>
+            <input type="date" id="filtro-data-historico" style="padding: 8px; font-size: 13px; background: #0f172a; color: white; border: 1px solid #334155; border-radius: 6px;">
+        </div>
+
+        <div id="historico-lista-container" style="display: flex; flex-direction: column; gap: 10px;">
+            <!-- Itens dinâmicos renderizados via JS -->
+        </div>
+    </div>
+</div>
+
 <script>
 // --- BANCO DE DADOS DE MAPEAMENTO (CIDADE E EMPRESA) ---
 const dadosMapeamento = [
@@ -371,6 +391,7 @@ const dadosMapeamento = [
     {c:"JACAREI", e:"DANLEX DDD12"},
     {c:"JAGUARIUNA", e:"NEW TIME"},
     {c:"JALES", e:"CANTOIA DDD17"},
+    {c:"JARDINOPOLIS", e:"BASIC DDD16/17"},
     {c:"JARDINOPOLIS", e:"BASIC DDD16/17"},
     {c:"JAU", e:"BASIC DDD14"},
     {c:"JOSE BONIFACIO", e:"CANTOIA DDD17"},
@@ -475,6 +496,13 @@ const tituloPagina = document.getElementById('titulo-pagina');
 
 const selectJanela = document.getElementById('select-janela');
 const listaCidadesDatalist = document.getElementById('lista-cidades');
+
+// Elementos do Histórico
+const btnAbrirHistorico = document.getElementById('btn-abrir-historico');
+const modalHistorico = document.getElementById('modal-historico');
+const btnFecharHistorico = document.getElementById('btn-fechar-historico');
+const filtroDataHistorico = document.getElementById('filtro-data-historico');
+const historicoListaContainer = document.getElementById('historico-lista-container');
 
 // Estrutura unificada de equipamentos
 let listaEquipamentos = []; 
@@ -1149,6 +1177,32 @@ btnSalvar.addEventListener('click', async () => {
                                    CONTRATO: ${contrato} | TIPO: ${servicoDinamico} | EQUIPAMENTOS: ${listaEquipamentos.length}
                                    </span>`;
 
+            // --- SALVAR NO HISTÓRICO LOCAL (Últimos 15 dias) ---
+            const miniaturaPromessas = imagensEnvio.map(img => {
+                return new Promise(resolveMiniatura => {
+                    criarMiniaturaBase64(img, 400, resolveMiniatura);
+                });
+            });
+            
+            const miniaturasCompressas = await Promise.all(miniaturaPromessas);
+
+            const registroHistorico = {
+                id: Date.now(),
+                dataHora: new Date().toISOString(),
+                contrato: contrato,
+                codigoBaixa: codigoBaixaValido,
+                cidade: cidade,
+                tecnico: tecnico,
+                empresa: empresa,
+                servico: servicoDinamico,
+                janela: janelaValida,
+                observacao: observacao,
+                imagens: miniaturasCompressas,
+                caId: caIdsEnvio ? JSON.parse(caIdsEnvio) : null
+            };
+            
+            salvarNoHistoricoLocal(registroHistorico);
+
             inputContrato.value = "";
             inputCodigoBaixa.value = "";
             inputObservacao.value = "";
@@ -1178,6 +1232,194 @@ btnSalvar.addEventListener('click', async () => {
             alertSave.style.display = 'none';
         }, 8000);
     }
+});
+
+// --- ENGENHARIA DE CONTROLE DO HISTÓRICO LOCAL ---
+
+// Reduz dimensões das imagens no cache local para proteger o armazenamento (quota limite de 5MB do navegador)
+function criarMiniaturaBase64(base64Original, maxWidth, callback) {
+    const img = new Image();
+    img.src = base64Original;
+    img.onload = function() {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        let w = img.width;
+        let h = img.height;
+        if (w > maxWidth || h > maxWidth) {
+            if (w > h) {
+                h = Math.round((h * maxWidth) / w);
+                w = maxWidth;
+            } else {
+                w = Math.round((w * maxWidth) / h);
+                h = maxWidth;
+            }
+        }
+        canvas.width = w;
+        canvas.height = h;
+        ctx.drawImage(img, 0, 0, w, h);
+        callback(canvas.toDataURL('image/jpeg', 0.5));
+    };
+    img.onerror = function() {
+        callback(base64Original);
+    };
+}
+
+// Filtra e expurga registros que excedam 15 dias de antiguidade
+function obterHistoricoFiltrado() {
+    let historico = [];
+    try {
+        historico = JSON.parse(localStorage.getItem('historico_tecnico')) || [];
+    } catch (e) {
+        historico = [];
+    }
+    
+    const limite15Dias = new Date();
+    limite15Dias.setDate(limite15Dias.getDate() - 15);
+    limite15Dias.setHours(0, 0, 0, 0);
+    
+    return historico.filter(item => {
+        const dataItem = new Date(item.dataHora);
+        return dataItem >= limite15Dias;
+    });
+}
+
+function salvarNoHistoricoLocal(novoRegistro) {
+    let historico = obterHistoricoFiltrado();
+    historico.unshift(novoRegistro);
+    
+    try {
+        localStorage.setItem('historico_tecnico', JSON.stringify(historico));
+    } catch (e) {
+        console.warn("Storage cheio. Descartando registros antigos para liberar espaço...");
+        while (historico.length > 0) {
+            historico.pop();
+            try {
+                localStorage.setItem('historico_tecnico', JSON.stringify(historico));
+                break;
+            } catch (err) {}
+        }
+    }
+}
+
+// Renderiza a listagem dinâmica com expandir/retratar
+function renderizarListaHistorico() {
+    historicoListaContainer.innerHTML = '';
+    
+    let historico = obterHistoricoFiltrado();
+    const filtroDataVal = filtroDataHistorico.value;
+    
+    if (filtroDataVal) {
+        historico = historico.filter(item => {
+            const dataItemStr = item.dataHora.split('T')[0];
+            return dataItemStr === filtroDataVal;
+        });
+    }
+    
+    if (historico.length === 0) {
+        historicoListaContainer.innerHTML = '<div style="text-align:center; padding:20px; color:#94a3b8; font-size:14px;">Nenhum registro localizado para esta data.</div>';
+        return;
+    }
+    
+    historico.forEach(item => {
+        const itemCard = document.createElement('div');
+        itemCard.style.background = '#0f172a';
+        itemCard.style.border = '1px solid #334155';
+        itemCard.style.borderRadius = '8px';
+        itemCard.style.overflow = 'hidden';
+        itemCard.style.marginBottom = '10px';
+        
+        const dataFormatada = new Date(item.dataHora).toLocaleString('pt-BR');
+        
+        const header = document.createElement('div');
+        header.style.padding = '12px';
+        header.style.background = '#1e293b';
+        header.style.cursor = 'pointer';
+        header.style.display = 'flex';
+        header.style.justifyContent = 'space-between';
+        header.style.alignItems = 'center';
+        header.style.borderBottom = '1px solid #334155';
+        
+        header.innerHTML = `
+            <div style="text-align: left;">
+                <strong style="color: #38bdf8; font-size: 14px;">CONTRATO: ${item.contrato}</strong>
+                <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">📅 ${dataFormatada} | ${item.servico}</div>
+            </div>
+            <span class="indicador-expandir" style="font-size: 16px; color: #94a3b8;">▼</span>
+        `;
+        
+        const content = document.createElement('div');
+        content.style.display = 'none';
+        content.style.padding = '12px';
+        content.style.fontSize = '13px';
+        content.style.color = '#cbd5e1';
+        
+        let detailsHtml = `
+            <div style="margin-bottom: 8px;">🏢 <strong>Empresa:</strong> ${item.empresa}</div>
+            <div style="margin-bottom: 8px;">📍 <strong>Cidade:</strong> ${item.cidade}</div>
+            <div style="margin-bottom: 8px;">👤 <strong>Técnico:</strong> ${item.tecnico}</div>
+            <div style="margin-bottom: 8px;">🔑 <strong>Código Baixa:</strong> ${item.codigoBaixa || 'N/A'}</div>
+            <div style="margin-bottom: 8px;">🕒 <strong>Janela:</strong> ${item.janela || 'N/A'}</div>
+        `;
+        
+        if (item.observacao) {
+            detailsHtml += `<div style="margin-bottom: 8px; color: #f59e0b;">💬 <strong>Obs:</strong> ${item.observacao}</div>`;
+        }
+        
+        if (item.caId && Array.isArray(item.caId) && item.caId.length > 0) {
+            detailsHtml += `<div style="font-weight:bold; color:#22c55e; margin-top:10px; font-size:12px;">📟 EQUIPAMENTOS RETIRADOS:</div>`;
+            item.caId.forEach(eq => {
+                detailsHtml += `<div style="font-size:11px; margin-left: 5px; color:#38bdf8;">• CA ID: ${eq.caId || 'N/A'} | MAC: ${eq.mac || 'N/A'}</div>`;
+            });
+        }
+        
+        // Renderização oculta da galeria expandível
+        detailsHtml += `<div style="font-weight:bold; margin-top:12px; margin-bottom:6px; font-size:12px;">📷 EVIDÊNCIAS:</div>`;
+        detailsHtml += `<div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:8px;">`;
+        
+        item.imagens.forEach(imgBase64 => {
+            detailsHtml += `<img src="${imgBase64}" style="width:100%; aspect-ratio:1; object-fit:cover; border-radius:4px; border: 1px solid #334155; cursor:pointer;" onclick="window.open(this.src, '_blank')">`;
+        });
+        
+        detailsHtml += `</div>`;
+        
+        content.innerHTML = detailsHtml;
+        
+        header.addEventListener('click', () => {
+            const isHidden = content.style.display === 'none';
+            content.style.display = isHidden ? 'block' : 'none';
+            header.querySelector('.indicador-expandir').textContent = isHidden ? '▲' : '▼';
+        });
+        
+        itemCard.appendChild(header);
+        itemCard.appendChild(content);
+        historicoListaContainer.appendChild(itemCard);
+    });
+}
+
+// --- CONFIGURAÇÃO DE DATAS DO HISTÓRICO (ÚLTIMOS 15 DIAS APENAS) ---
+btnAbrirHistorico.addEventListener('click', () => {
+    const hoje = new Date();
+    const limite15Dias = new Date();
+    limite15Dias.setDate(hoje.getDate() - 15);
+    
+    const maxDateStr = hoje.toISOString().split('T')[0];
+    const minDateStr = limite15Dias.toISOString().split('T')[0];
+    
+    // Configura o limite nativo do calendário no input date
+    filtroDataHistorico.max = maxDateStr;
+    filtroDataHistorico.min = minDateStr;
+    filtroDataHistorico.value = maxDateStr; // Data de hoje selecionada por padrão
+    
+    modalHistorico.style.display = 'block';
+    renderizarListaHistorico();
+});
+
+btnFecharHistorico.addEventListener('click', () => {
+    modalHistorico.style.display = 'none';
+});
+
+filtroDataHistorico.addEventListener('change', () => {
+    renderizarListaHistorico();
 });
 </script>
 
